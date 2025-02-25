@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
+import 'dart:convert';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:flutter/services.dart';
 import 'package:glucose_companion/core/security/secure_storage.dart';
+import 'package:glucose_companion/core/di/injection_container.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -15,7 +18,8 @@ class DatabaseHelper {
 
   static Database? _database;
 
-  final _secureStorage = SecureStorage();
+  // Використовуємо інжектований SecureStorage
+  final _secureStorage = sl<SecureStorage>();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -44,9 +48,41 @@ class DatabaseHelper {
     }
 
     // Завантаження SQL-скрипта з assets
-    String createScript = await rootBundle.loadString(
-      'assets/sql/database_schema.sql',
-    );
+    String createScript;
+    try {
+      createScript = await rootBundle.loadString(
+        'assets/sql/database_schema.sql',
+      );
+    } catch (e) {
+      // Якщо файл не знайдено, використовуємо базову схему
+      createScript = '''
+        -- Таблиця користувачів
+        CREATE TABLE IF NOT EXISTS users (
+          user_id TEXT PRIMARY KEY,
+          name TEXT,
+          email TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        -- Таблиця показників глюкози
+        CREATE TABLE IF NOT EXISTS glucose_readings (
+          reading_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          timestamp TEXT NOT NULL,
+          value REAL NOT NULL,
+          mmol_l REAL NOT NULL,
+          trend INTEGER,
+          trend_description TEXT,
+          trend_arrow TEXT,
+          is_valid INTEGER DEFAULT 1,
+          source TEXT DEFAULT 'CGM',
+          raw_data TEXT,
+          FOREIGN KEY (user_id) REFERENCES users(user_id),
+          UNIQUE (user_id, timestamp)
+        );
+      ''';
+    }
 
     // Відкриття зашифрованої бази даних
     return await openDatabase(

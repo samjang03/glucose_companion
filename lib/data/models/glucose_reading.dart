@@ -7,6 +7,8 @@ class GlucoseReading extends Equatable {
   final String trendDirection; // напрямок тренду
   final String trendArrow; // стрілка тренду
   final DateTime timestamp; // час вимірювання
+  final Map<String, dynamic>
+  json; // додаємо поле для зберігання оригінального JSON
 
   const GlucoseReading({
     required this.value,
@@ -15,6 +17,7 @@ class GlucoseReading extends Equatable {
     required this.trendDirection,
     required this.trendArrow,
     required this.timestamp,
+    required this.json,
   });
 
   factory GlucoseReading.fromJson(Map<String, dynamic> json) {
@@ -34,6 +37,7 @@ class GlucoseReading extends Equatable {
       trendDirection: _getTrendDirection(json['Trend'] as String),
       trendArrow: _getTrendArrow(json['Trend'] as String),
       timestamp: timestamp,
+      json: json, // зберігаємо оригінальний JSON
     );
   }
 
@@ -120,5 +124,6 @@ class GlucoseReading extends Equatable {
     trendDirection,
     trendArrow,
     timestamp,
+    json,
   ];
 }

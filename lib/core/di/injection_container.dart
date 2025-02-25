@@ -10,6 +10,8 @@ import 'package:glucose_companion/domain/repositories/dexcom_repository.dart';
 import 'package:glucose_companion/domain/repositories/glucose_reading_repository.dart';
 import 'package:glucose_companion/domain/repositories/glucose_reading_repository_impl.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_bloc.dart';
+import 'package:glucose_companion/presentation/bloc/settings/settings_bloc.dart';
+import 'package:glucose_companion/services/settings_service.dart';
 
 final sl = GetIt.instance;
 
@@ -22,6 +24,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SecureStorage(sl()));
   sl.registerLazySingleton(() => SessionManager(sl()));
   sl.registerLazySingleton(() => DatabaseHelper());
+
+  // Services
+  sl.registerLazySingleton(() => SettingsService());
 
   // Data sources
   sl.registerLazySingleton(
@@ -40,6 +45,7 @@ Future<void> init() async {
 
   // BLoCs
   sl.registerFactory(() => HomeBloc(sl()));
+  sl.registerFactory(() => SettingsBloc(sl()));
 
   // Initialize services
   await sl<SecureStorage>().init();

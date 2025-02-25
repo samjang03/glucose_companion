@@ -11,6 +11,7 @@ import 'package:glucose_companion/presentation/bloc/home/home_state.dart';
 import 'package:glucose_companion/presentation/pages/login_page.dart';
 import 'package:glucose_companion/presentation/widgets/current_glucose_card.dart';
 import 'package:glucose_companion/presentation/widgets/glucose_chart.dart'; // Віджет графіка
+import 'package:glucose_companion/presentation/pages/settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -302,7 +303,7 @@ class _HomePageState extends State<HomePage>
 
   Widget _buildSettingsTab() {
     // Заглушка для екрану налаштувань
-    return const Center(child: Text('Settings - Coming Soon'));
+    return const SettingsPage();
   }
 
   void _showAddDataDialog() {

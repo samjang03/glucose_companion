@@ -70,20 +70,11 @@ class CurrentGlucoseCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            GlucoseConverter.formatValue(
-                              reading!.mmolL,
-                              useMMOL,
-                            ),
-                            style: TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              color: _getGlucoseColor(reading!.mmolL, theme),
-                            ),
-                          ),
-                          Text(
                             useMMOL
                                 ? reading!.mmolL.toStringAsFixed(1)
-                                : reading!.value.round().toString(),
+                                : GlucoseConverter.mmolToMgdl(
+                                  reading!.mmolL,
+                                ).round().toString(),
                             style: TextStyle(
                               fontSize: 48,
                               fontWeight: FontWeight.bold,
@@ -100,12 +91,25 @@ class CurrentGlucoseCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      Text(
-                        reading!.trendDirection,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: _getGlucoseColor(reading!.mmolL, theme),
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            reading!.trendDirection,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: _getGlucoseColor(reading!.mmolL, theme),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            reading!.trendArrow,
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: _getGlucoseColor(reading!.mmolL, theme),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       Text(

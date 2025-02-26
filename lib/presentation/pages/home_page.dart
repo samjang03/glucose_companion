@@ -4,16 +4,15 @@ import 'package:glucose_companion/core/di/injection_container.dart';
 import 'package:glucose_companion/core/security/session_manager.dart';
 import 'package:glucose_companion/data/models/glucose_reading.dart';
 import 'package:glucose_companion/data/models/glucose_chart_data.dart';
-import 'package:glucose_companion/domain/repositories/dexcom_repository.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_bloc.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_event.dart';
+import 'package:glucose_companion/presentation/bloc/home/home_state.dart';
 import 'package:glucose_companion/presentation/bloc/settings/settings_bloc.dart';
 import 'package:glucose_companion/presentation/bloc/settings/settings_state.dart';
 import 'package:glucose_companion/presentation/pages/login_page.dart';
-import 'package:glucose_companion/presentation/pages/settings_page.dart'; // Додаємо імпорт для SettingsPage
+import 'package:glucose_companion/presentation/pages/settings_page.dart';
 import 'package:glucose_companion/presentation/widgets/current_glucose_card.dart';
 import 'package:glucose_companion/presentation/widgets/glucose_chart.dart';
-import 'package:glucose_companion/presentation/bloc/home/home_state.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -36,18 +35,17 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
 
-    // Ініціалізуємо BLoC
-    _homeBloc = HomeBloc(sl<DexcomRepository>());
+    // Initialize BLoC
+    _homeBloc = sl<HomeBloc>();
 
-    // Встановлюємо обробник закінчення сесії
+    // Set session expiry handler
     _sessionManager.onSessionExpired = _handleSessionExpired;
 
-    // Ініціалізуємо контролер вкладок
+    // Initialize tab controller
     _tabController = TabController(length: 3, vsync: this);
 
-    // Завантажуємо початкові дані
-    _homeBloc.add(LoadCurrentGlucoseEvent());
-    _homeBloc.add(const LoadGlucoseHistoryEvent(hours: 3));
+    // Load initial data
+    _refreshData();
   }
 
   @override
@@ -58,7 +56,7 @@ class _HomePageState extends State<HomePage>
   }
 
   void _handleSessionExpired() {
-    // Переходимо на сторінку входу, якщо сесія закінчилась
+    // Navigate to login page when session expires
     if (!mounted) return;
 
     Navigator.of(
@@ -83,7 +81,57 @@ class _HomePageState extends State<HomePage>
   }
 
   void _refreshData() {
-    _homeBloc.add(RefreshGlucoseDataEvent());
+    _homeBloc.add(LoadCurrentGlucoseEvent());
+    _homeBloc.add(const LoadGlucoseHistoryEvent(hours: 3));
+  }
+
+  void _showAddDataDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Add Data',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.medical_services),
+                title: const Text('Record Insulin'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showInsulinDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.restaurant),
+                title: const Text('Record Carbs'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showCarbsDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.fitness_center),
+                title: const Text('Record Activity'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Will be implemented later
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -98,7 +146,7 @@ class _HomePageState extends State<HomePage>
           BlocListener<SettingsBloc, SettingsState>(
             listener: (context, state) {
               if (state is SettingsLoaded || state is SettingsSaved) {
-                // Коли налаштування змінюються, оновлюємо дані
+                // Refresh data when settings change
                 _refreshData();
               }
             },
@@ -234,7 +282,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildStatsCard() {
-    // Розраховуємо статистику на основі історичних даних
+    // Calculate statistics based on historical data
     if (_glucoseHistory.isEmpty) {
       return const Card(
         child: Padding(
@@ -244,21 +292,21 @@ class _HomePageState extends State<HomePage>
       );
     }
 
-    // Розрахунок базової статистики
+    // Calculate basic statistics
     final values = _glucoseHistory.map((r) => r.mmolL).toList();
     final average = values.reduce((a, b) => a + b) / values.length;
 
-    // Час в діапазоні
+    // Time in range
     final inRange = values.where((v) => v >= 3.9 && v <= 10.0).length;
     final timeInRange = (inRange / values.length * 100).toStringAsFixed(1);
 
-    // Час вище діапазону
+    // Time above range
     final aboveRange = values.where((v) => v > 10.0).length;
     final timeAboveRange = (aboveRange / values.length * 100).toStringAsFixed(
       1,
     );
 
-    // Час нижче діапазону
+    // Time below range
     final belowRange = values.where((v) => v < 3.9).length;
     final timeBelowRange = (belowRange / values.length * 100).toStringAsFixed(
       1,
@@ -322,62 +370,13 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildAnalyticsTab() {
-    // Заглушка для аналітичного екрану
+    // Placeholder for analytics screen
     return const Center(child: Text('Analytics - Coming Soon'));
   }
 
   Widget _buildSettingsTab() {
-    // Заглушка для екрану налаштувань
+    // Settings page
     return const SettingsPage();
-  }
-
-  void _showAddDataDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Add Data',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.medical_services),
-                title: const Text('Record Insulin'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showInsulinDialog();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.restaurant),
-                title: const Text('Record Carbs'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showCarbsDialog();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.fitness_center),
-                title: const Text('Record Activity'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Буде реалізовано пізніше
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   void _showInsulinDialog() {

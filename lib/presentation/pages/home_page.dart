@@ -44,14 +44,21 @@ class _HomePageState extends State<HomePage>
     // Initialize tab controller
     _tabController = TabController(length: 3, vsync: this);
 
+    _tabController.addListener(() {
+      // Викликаємо setState щоб оновити FAB при зміні вкладки
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
     // Load initial data
     _refreshData();
   }
 
   @override
   void dispose() {
-    _homeBloc.close();
     _tabController.dispose();
+    _homeBloc.close();
     super.dispose();
   }
 

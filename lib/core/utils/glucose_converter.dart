@@ -1,26 +1,29 @@
+// lib/core/utils/glucose_converter.dart
 class GlucoseConverter {
   static const double conversionFactor = 18.0;
 
-  // Convert from mmol/L to mg/dL
+  // з mmol/L в mg/dL
   static double mmolToMgdl(double mmolValue) {
     return mmolValue * conversionFactor;
   }
 
-  // Convert from mg/dL to mmol/L
+  // з mg/dL в mmol/L
   static double mgdlToMmol(double mgdlValue) {
     return mgdlValue / conversionFactor;
   }
 
-  // Format value according to selected units
+  // Форматоване значення відповідно до обраних одиниць
   static String formatValue(double mmolValue, bool useMMOL) {
     if (useMMOL) {
       return mmolValue.toStringAsFixed(1);
     } else {
-      return mmolToMgdl(mmolValue).round().toString();
+      // Конвертуємо значення в mg/dL перед форматуванням
+      double mgdlValue = mmolToMgdl(mmolValue);
+      return mgdlValue.round().toString();
     }
   }
 
-  // Unit string
+  // Одиниця вимірювання як стрічка
   static String unitString(bool useMMOL) {
     return useMMOL ? 'mmol/L' : 'mg/dL';
   }

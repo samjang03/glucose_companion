@@ -73,7 +73,7 @@ class UserSettings {
       urgentLowThreshold: map['urgentLowThreshold'] ?? 3.0,
       urgentHighThreshold: map['urgentHighThreshold'] ?? 13.9,
       dexcomRegion: map['dexcomRegion'] ?? 'ous',
-      autoRefreshInterval: map['autoRefreshInterval'] ?? 5,
+      autoRefreshInterval: 5,
       alertsEnabled: map['alertsEnabled'] ?? true,
       predictionAlertsEnabled: map['predictionAlertsEnabled'] ?? true,
       vibrateOnAlert: map['vibrateOnAlert'] ?? true,
@@ -108,7 +108,7 @@ class UserSettings {
       urgentLowThreshold: urgentLowThreshold ?? this.urgentLowThreshold,
       urgentHighThreshold: urgentHighThreshold ?? this.urgentHighThreshold,
       dexcomRegion: dexcomRegion ?? this.dexcomRegion,
-      autoRefreshInterval: autoRefreshInterval ?? this.autoRefreshInterval,
+      autoRefreshInterval: 5,
       alertsEnabled: alertsEnabled ?? this.alertsEnabled,
       predictionAlertsEnabled:
           predictionAlertsEnabled ?? this.predictionAlertsEnabled,

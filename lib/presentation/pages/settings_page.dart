@@ -53,8 +53,8 @@ class _SettingsPageState extends State<SettingsPage> {
         _buildThresholdsSection(settings),
         const Divider(),
         _buildDexcomSection(settings),
-        const Divider(),
-        _buildRefreshSection(settings),
+        // const Divider(),
+        // _buildRefreshSection(settings),
         const Divider(),
         _buildAlertSection(settings),
         const Divider(),
@@ -229,42 +229,6 @@ class _SettingsPageState extends State<SettingsPage> {
               DropdownMenuItem(value: 'us', child: Text('United States')),
               DropdownMenuItem(value: 'ous', child: Text('Outside US')),
               DropdownMenuItem(value: 'jp', child: Text('Japan')),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRefreshSection(UserSettings settings) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const ListTile(
-          title: Text(
-            'Data Refresh',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          leading: Icon(Icons.refresh),
-        ),
-        ListTile(
-          title: const Text('Auto Refresh Interval'),
-          subtitle: Text(
-            'Glucose data will refresh every ${settings.autoRefreshInterval} minutes',
-          ),
-          trailing: DropdownButton<int>(
-            value: settings.autoRefreshInterval,
-            onChanged: (value) {
-              if (value != null) {
-                _settingsBloc.add(UpdateRefreshIntervalEvent(value));
-              }
-            },
-            items: const [
-              DropdownMenuItem(value: 1, child: Text('1 minute')),
-              DropdownMenuItem(value: 2, child: Text('2 minutes')),
-              DropdownMenuItem(value: 5, child: Text('5 minutes')),
-              DropdownMenuItem(value: 10, child: Text('10 minutes')),
-              DropdownMenuItem(value: 15, child: Text('15 minutes')),
             ],
           ),
         ),

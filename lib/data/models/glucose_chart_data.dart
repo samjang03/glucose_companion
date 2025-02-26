@@ -37,7 +37,7 @@ class GlucoseChartData {
     // Сортуємо дані за часом
     readings.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-    // Конвертуємо у точки для графіка
+    // Конвертуємо у точки для графіка - завжди зберігаємо в mmol/L для стандартизації
     List<FlSpot> spots = [];
 
     for (var reading in readings) {

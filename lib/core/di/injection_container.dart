@@ -44,7 +44,7 @@ Future<void> init() async {
   );
 
   // BLoCs
-  sl.registerFactory(() => HomeBloc(sl()));
+  sl.registerFactory(() => HomeBloc(sl<DexcomRepository>()));
   sl.registerFactory(() => SettingsBloc(sl()));
 
   // Initialize services

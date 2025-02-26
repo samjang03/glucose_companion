@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:glucose_companion/core/di/injection_container.dart';
 import 'package:glucose_companion/core/security/session_manager.dart';
-import 'package:glucose_companion/data/models/glucose_chart_data.dart'; // Правильний шлях
 import 'package:glucose_companion/data/models/glucose_reading.dart';
+import 'package:glucose_companion/data/models/glucose_chart_data.dart';
 import 'package:glucose_companion/domain/repositories/dexcom_repository.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_bloc.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_event.dart';
-import 'package:glucose_companion/presentation/bloc/home/home_state.dart';
+import 'package:glucose_companion/presentation/bloc/settings/settings_bloc.dart';
+import 'package:glucose_companion/presentation/bloc/settings/settings_state.dart';
 import 'package:glucose_companion/presentation/pages/login_page.dart';
+import 'package:glucose_companion/presentation/pages/settings_page.dart'; // Додаємо імпорт для SettingsPage
 import 'package:glucose_companion/presentation/widgets/current_glucose_card.dart';
-import 'package:glucose_companion/presentation/widgets/glucose_chart.dart'; // Віджет графіка
-import 'package:glucose_companion/presentation/pages/settings_page.dart';
+import 'package:glucose_companion/presentation/widgets/glucose_chart.dart';
+import 'package:glucose_companion/presentation/bloc/home/home_state.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -86,71 +88,94 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<HomeBloc, HomeState>(
-      bloc: _homeBloc,
-      listener: (context, state) {
-        if (state is CurrentGlucoseLoaded) {
-          setState(() {
-            _currentReading = state.currentReading;
-            _isLoading = false;
-          });
-        } else if (state is GlucoseHistoryLoaded) {
-          setState(() {
-            _glucoseHistory = state.readings;
-          });
-        } else if (state is CurrentGlucoseLoading) {
-          setState(() {
-            _isLoading = true;
-          });
-        } else if (state is HomeLoadingFailure) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
-          );
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Glucose Companion'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Colors.white,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _refreshData,
-              tooltip: 'Refresh data',
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: _logout,
-              tooltip: 'Logout',
-            ),
-          ],
-          bottom: TabBar(
-            controller: _tabController,
-            tabs: const [
-              Tab(text: 'Overview', icon: Icon(Icons.home)),
-              Tab(text: 'Analytics', icon: Icon(Icons.analytics)),
-              Tab(text: 'Settings', icon: Icon(Icons.settings)),
-            ],
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: _homeBloc),
+        BlocProvider.value(value: sl<SettingsBloc>()),
+      ],
+      child: MultiBlocListener(
+        listeners: [
+          BlocListener<SettingsBloc, SettingsState>(
+            listener: (context, state) {
+              if (state is SettingsLoaded || state is SettingsSaved) {
+                // Коли налаштування змінюються, оновлюємо дані
+                _refreshData();
+              }
+            },
           ),
-        ),
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildOverviewTab(),
-            _buildAnalyticsTab(),
-            _buildSettingsTab(),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _showAddDataDialog,
-          child: const Icon(Icons.add),
+          BlocListener<HomeBloc, HomeState>(
+            listener: (context, state) {
+              if (state is CurrentGlucoseLoaded) {
+                setState(() {
+                  _currentReading = state.currentReading;
+                  _isLoading = false;
+                });
+              } else if (state is GlucoseHistoryLoaded) {
+                setState(() {
+                  _glucoseHistory = state.readings;
+                });
+              } else if (state is CurrentGlucoseLoading) {
+                setState(() {
+                  _isLoading = true;
+                });
+              } else if (state is HomeLoadingFailure) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                setState(() {
+                  _isLoading = false;
+                });
+              }
+            },
+          ),
+        ],
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Glucose Companion'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _refreshData,
+                tooltip: 'Refresh data',
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: _logout,
+                tooltip: 'Logout',
+              ),
+            ],
+            bottom: TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(text: 'Overview', icon: Icon(Icons.home)),
+                Tab(text: 'Analytics', icon: Icon(Icons.analytics)),
+                Tab(text: 'Settings', icon: Icon(Icons.settings)),
+              ],
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              indicatorColor: Colors.white,
+            ),
+          ),
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildOverviewTab(),
+              _buildAnalyticsTab(),
+              _buildSettingsTab(),
+            ],
+          ),
+          floatingActionButton:
+              _tabController.index == 0
+                  ? FloatingActionButton(
+                    onPressed: _showAddDataDialog,
+                    child: const Icon(Icons.add),
+                  )
+                  : null,
         ),
       ),
     );

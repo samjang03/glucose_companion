@@ -13,8 +13,15 @@ class DexcomRepositoryImpl implements DexcomRepository {
   }
 
   @override
-  Future<GlucoseReading> getCurrentGlucoseReading() {
-    return _apiClient.getCurrentGlucoseReading();
+  Future<GlucoseReading> getCurrentGlucoseReading() async {
+    try {
+      final reading = await _apiClient.getCurrentGlucoseReading();
+      print('Repository received reading: $reading');
+      return reading;
+    } catch (e) {
+      print('Repository error: $e');
+      rethrow;
+    }
   }
 
   @override

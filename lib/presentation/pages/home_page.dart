@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:glucose_companion/core/di/injection_container.dart';
 import 'package:glucose_companion/core/security/session_manager.dart';
+import 'package:glucose_companion/data/models/activity_record.dart';
+import 'package:glucose_companion/data/models/carb_record.dart';
 import 'package:glucose_companion/data/models/glucose_reading.dart';
 import 'package:glucose_companion/data/models/glucose_chart_data.dart';
+import 'package:glucose_companion/data/models/insulin_record.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_bloc.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_event.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_state.dart';
@@ -11,8 +14,12 @@ import 'package:glucose_companion/presentation/bloc/settings/settings_bloc.dart'
 import 'package:glucose_companion/presentation/bloc/settings/settings_state.dart';
 import 'package:glucose_companion/presentation/pages/login_page.dart';
 import 'package:glucose_companion/presentation/pages/settings_page.dart';
+import 'package:glucose_companion/presentation/widgets/activity_input_dialog.dart';
 import 'package:glucose_companion/presentation/widgets/current_glucose_card.dart';
 import 'package:glucose_companion/presentation/widgets/glucose_chart.dart';
+import 'package:glucose_companion/presentation/widgets/insulin_input_dialog.dart';
+import 'package:glucose_companion/presentation/widgets/carbs_input_dialog.dart';
+import 'package:glucose_companion/presentation/widgets/daily_records_list.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -29,6 +36,9 @@ class _HomePageState extends State<HomePage>
 
   GlucoseReading? _currentReading;
   List<GlucoseReading> _glucoseHistory = [];
+  List<InsulinRecord> _insulinRecords = [];
+  List<CarbRecord> _carbRecords = [];
+  List<ActivityRecord> _activityRecords = [];
   bool _isLoading = true;
 
   @override
@@ -90,6 +100,7 @@ class _HomePageState extends State<HomePage>
   void _refreshData() {
     _homeBloc.add(LoadCurrentGlucoseEvent());
     _homeBloc.add(const LoadGlucoseHistoryEvent(hours: 3));
+    _homeBloc.add(LoadDailyRecordsEvent(DateTime.now()));
   }
 
   void _showAddDataDialog() {
@@ -131,11 +142,39 @@ class _HomePageState extends State<HomePage>
                 title: const Text('Record Activity'),
                 onTap: () {
                   Navigator.pop(context);
-                  // Will be implemented later
+                  _showActivityDialog();
                 },
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _showActivityDialog({ActivityRecord? record}) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return ActivityInputDialog(
+          initialActivityType: record?.activityType,
+          initialNotes: record?.notes,
+          isEditing: record != null,
+          onSave: (activityType, notes) {
+            if (record != null) {
+              // Режим редагування
+              _homeBloc.add(
+                UpdateActivityRecordEvent(
+                  record.copyWith(activityType: activityType, notes: notes),
+                ),
+              );
+            } else {
+              // Новий запис
+              _homeBloc.add(
+                RecordActivityEvent(activityType: activityType, notes: notes),
+              );
+            }
+          },
         );
       },
     );
@@ -183,6 +222,19 @@ class _HomePageState extends State<HomePage>
                 setState(() {
                   _isLoading = false;
                 });
+              } else if (state is DailyRecordsLoaded) {
+                setState(() {
+                  _insulinRecords = state.insulinRecords;
+                  _carbRecords = state.carbRecords;
+                  _activityRecords = state.activityRecords;
+                });
+              } else if (state is InsulinRecorded || state is CarbsRecorded) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Record saved successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
               }
             },
           ),
@@ -221,7 +273,7 @@ class _HomePageState extends State<HomePage>
             children: [
               _buildOverviewTab(),
               _buildAnalyticsTab(),
-              _buildSettingsTab(),
+              const SettingsPage(),
             ],
           ),
           floatingActionButton:
@@ -237,53 +289,110 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildOverviewTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CurrentGlucoseCard(
-            reading: _currentReading,
-            isLoading: _isLoading,
-            onRefresh: _refreshData,
-          ),
-          const SizedBox(height: 24),
-          Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+    return RefreshIndicator(
+      onRefresh: () async => _refreshData(),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CurrentGlucoseCard(
+              reading: _currentReading,
+              isLoading: _isLoading,
+              onRefresh: _refreshData,
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Glucose Trend',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 250,
-                    child:
-                        _glucoseHistory.isEmpty && !_isLoading
-                            ? const Center(child: Text('No data available'))
-                            : _isLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : GlucoseChart(
-                              data: GlucoseChartData.fromReadings(
-                                _glucoseHistory,
-                                DateTime.now(),
+            const SizedBox(height: 24),
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Glucose Trend',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 250,
+                      child:
+                          _glucoseHistory.isEmpty && !_isLoading
+                              ? const Center(child: Text('No data available'))
+                              : _isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : GlucoseChart(
+                                data: GlucoseChartData.fromReadings(
+                                  _glucoseHistory,
+                                  DateTime.now(),
+                                ),
                               ),
-                            ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildStatsCard(),
-        ],
+            const SizedBox(height: 16),
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Today\'s Records',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _showAddDataDialog,
+                          child: const Text('Add'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    DailyRecordsList(
+                      insulinRecords: _insulinRecords,
+                      carbRecords: _carbRecords,
+                      activityRecords:
+                          _activityRecords ??
+                          [], // додаємо порожній список, якщо _activityRecords ще не ініціалізований
+                      onEditInsulin: (record) {
+                        _showInsulinDialog(record: record);
+                      },
+                      onEditCarb: (record) {
+                        _showCarbsDialog(record: record);
+                      },
+                      onEditActivity: (record) {
+                        _showActivityDialog(record: record);
+                      },
+                      onDeleteRecord: (type, id) {
+                        _homeBloc.add(DeleteRecordEvent(type, id));
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildStatsCard(),
+          ],
+        ),
       ),
     );
   }
@@ -381,123 +490,75 @@ class _HomePageState extends State<HomePage>
     return const Center(child: Text('Analytics - Coming Soon'));
   }
 
-  Widget _buildSettingsTab() {
-    // Settings page
-    return const SettingsPage();
-  }
-
-  void _showInsulinDialog() {
-    final unitsController = TextEditingController();
-    String selectedType = 'Bolus';
-
+  void _showInsulinDialog({InsulinRecord? record}) {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Record Insulin'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: selectedType,
-                decoration: const InputDecoration(labelText: 'Insulin Type'),
-                items: const [
-                  DropdownMenuItem(value: 'Bolus', child: Text('Bolus')),
-                  DropdownMenuItem(value: 'Basal', child: Text('Basal')),
-                ],
-                onChanged: (value) {
-                  selectedType = value ?? 'Bolus';
-                },
-              ),
-              TextField(
-                controller: unitsController,
-                decoration: const InputDecoration(labelText: 'Units'),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+        return InsulinInputDialog(
+          initialType: record?.type,
+          initialUnits: record?.units,
+          initialNotes: record?.notes,
+          isEditing: record != null,
+          onSave: (units, insulinType, notes) {
+            if (record != null) {
+              // Режим редагування
+              _homeBloc.add(
+                UpdateInsulinRecordEvent(
+                  record.copyWith(
+                    units: units,
+                    type: insulinType,
+                    notes: notes,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (unitsController.text.isNotEmpty) {
-                  try {
-                    final units = double.parse(unitsController.text);
-                    _homeBloc.add(
-                      RecordInsulinEvent(
-                        units: units,
-                        insulinType: selectedType,
-                      ),
-                    );
-                    Navigator.pop(context);
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a valid number'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
+              );
+            } else {
+              // Новий запис
+              _homeBloc.add(
+                RecordInsulinEvent(
+                  units: units,
+                  insulinType: insulinType,
+                  notes: notes,
+                ),
+              );
+            }
+          },
         );
       },
     );
   }
 
-  void _showCarbsDialog() {
-    final carbsController = TextEditingController();
-
+  void _showCarbsDialog({CarbRecord? record}) {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Record Carbs'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: carbsController,
-                decoration: const InputDecoration(labelText: 'Carbs (grams)'),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+        return CarbsInputDialog(
+          initialGrams: record?.grams,
+          initialMealType: record?.mealType,
+          initialNotes: record?.notes,
+          isEditing: record != null,
+          onSave: (grams, mealType, notes) {
+            if (record != null) {
+              // Режим редагування
+              _homeBloc.add(
+                UpdateCarbRecordEvent(
+                  record.copyWith(
+                    grams: grams,
+                    mealType: mealType,
+                    notes: notes,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (carbsController.text.isNotEmpty) {
-                  try {
-                    final carbs = double.parse(carbsController.text);
-                    _homeBloc.add(RecordCarbsEvent(grams: carbs));
-                    Navigator.pop(context);
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a valid number'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
+              );
+            } else {
+              // Новий запис
+              _homeBloc.add(
+                RecordCarbsEvent(
+                  grams: grams,
+                  foodType: mealType,
+                  notes: notes,
+                ),
+              );
+            }
+          },
         );
       },
     );

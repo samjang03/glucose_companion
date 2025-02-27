@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:glucose_companion/core/di/injection_container.dart';
 import 'package:glucose_companion/core/errors/exceptions.dart';
+import 'package:glucose_companion/data/datasources/local/database_helper.dart';
 import 'package:glucose_companion/data/repositories/dexcom_repository_impl.dart';
 import 'package:glucose_companion/domain/repositories/dexcom_repository.dart';
+import 'package:glucose_companion/presentation/bloc/home/home_bloc.dart';
+import 'package:glucose_companion/presentation/bloc/home/home_event.dart';
 import 'package:glucose_companion/presentation/pages/home_page.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,6 +22,15 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   final _repository = sl<DexcomRepository>();
+  final _homeBloc = sl<HomeBloc>();
+  final _databaseHelper = sl<DatabaseHelper>();
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _login() async {
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -40,6 +54,12 @@ class _LoginPageState extends State<LoginPage> {
       final reading = await _repository.getCurrentGlucoseReading();
 
       if (!mounted) return;
+
+      // Створюємо або отримуємо користувача
+      final userId = await _createOrGetUser(_usernameController.text);
+
+      // Встановлюємо ID користувача для HomeBloc
+      _homeBloc.add(SetUserIdEvent(userId));
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -86,6 +106,41 @@ class _LoginPageState extends State<LoginPage> {
       );
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<String> _createOrGetUser(String email) async {
+    try {
+      final db = await _databaseHelper.database;
+
+      // Перевіряємо, чи існує користувач з таким email
+      final List<Map<String, dynamic>> users = await db.query(
+        'users',
+        where: 'email = ?',
+        whereArgs: [email],
+      );
+
+      if (users.isNotEmpty) {
+        // Користувач знайдений, повертаємо його ID
+        return users.first['user_id'] as String;
+      } else {
+        // Створюємо нового користувача
+        final userId = const Uuid().v4();
+        final now = DateTime.now().toIso8601String();
+
+        await db.insert('users', {
+          'user_id': userId,
+          'email': email,
+          'created_at': now,
+          'updated_at': now,
+        });
+
+        return userId;
+      }
+    } catch (e) {
+      print('Error creating/getting user: $e');
+      // У випадку помилки генеруємо та повертаємо тимчасовий ID
+      return 'temp_user_${DateTime.now().millisecondsSinceEpoch}';
     }
   }
 

@@ -71,15 +71,10 @@ CREATE TABLE carb_records (
 CREATE TABLE activity_records (
     record_id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
-    timestamp TIMESTAMP NOT NULL,
-    activity_type TEXT NOT NULL, -- тип активності
-    duration INTEGER, -- тривалість у хвилинах
-    intensity TEXT, -- інтенсивність: 'low', 'medium', 'high'
-    steps INTEGER, -- кількість кроків
-    calories INTEGER, -- витрачені калорії
-    heart_rate INTEGER, -- середній пульс
+    timestamp TEXT NOT NULL,
+    activity_type TEXT NOT NULL,
     notes TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
 -- Прогнози рівня глюкози

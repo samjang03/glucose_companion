@@ -20,6 +20,10 @@ import 'package:glucose_companion/presentation/widgets/glucose_chart.dart';
 import 'package:glucose_companion/presentation/widgets/insulin_input_dialog.dart';
 import 'package:glucose_companion/presentation/widgets/carbs_input_dialog.dart';
 import 'package:glucose_companion/presentation/widgets/daily_records_list.dart';
+import 'package:glucose_companion/presentation/bloc/prediction/prediction_bloc.dart';
+import 'package:glucose_companion/presentation/bloc/prediction/prediction_event.dart';
+import 'package:glucose_companion/presentation/widgets/prediction_card.dart';
+import 'package:glucose_companion/presentation/bloc/prediction/prediction_state.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,6 +36,7 @@ class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   final _sessionManager = sl<SessionManager>();
   late final HomeBloc _homeBloc;
+  late final PredictionBloc _predictionBloc;
   late TabController _tabController;
 
   GlucoseReading? _currentReading;
@@ -47,6 +52,7 @@ class _HomePageState extends State<HomePage>
 
     // Initialize BLoC
     _homeBloc = sl<HomeBloc>();
+    _predictionBloc = sl<PredictionBloc>();
 
     // Set session expiry handler
     _sessionManager.onSessionExpired = _handleSessionExpired;
@@ -63,12 +69,20 @@ class _HomePageState extends State<HomePage>
 
     // Load initial data
     _refreshData();
+
+    // Запустіть завантаження прогнозу після того, як віджет побудовано
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<PredictionBloc>().add(const LoadPredictionEvent());
+      }
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _homeBloc.close();
+    _predictionBloc.close();
     super.dispose();
   }
 
@@ -101,6 +115,15 @@ class _HomePageState extends State<HomePage>
     _homeBloc.add(LoadCurrentGlucoseEvent());
     _homeBloc.add(const LoadGlucoseHistoryEvent(hours: 3));
     _homeBloc.add(LoadDailyRecordsEvent(DateTime.now()));
+
+    // Запуск оновлення прогнозу, якщо віджет вже побудовано
+    if (mounted) {
+      try {
+        context.read<PredictionBloc>().add(const LoadPredictionEvent());
+      } catch (e) {
+        print('Failed to update prediction: $e');
+      }
+    }
   }
 
   void _showAddDataDialog() {
@@ -186,6 +209,12 @@ class _HomePageState extends State<HomePage>
       providers: [
         BlocProvider.value(value: _homeBloc),
         BlocProvider.value(value: sl<SettingsBloc>()),
+        BlocProvider.value(value: _predictionBloc),
+        // BlocProvider(
+        //   create:
+        //       (context) =>
+        //           sl<PredictionBloc>()..add(const LoadPredictionEvent()),
+        // ),
       ],
       child: MultiBlocListener(
         listeners: [
@@ -337,6 +366,11 @@ class _HomePageState extends State<HomePage>
                   ],
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            BlocProvider<PredictionBloc>.value(
+              value: sl<PredictionBloc>(),
+              child: const PredictionCard(),
             ),
             const SizedBox(height: 16),
             Card(

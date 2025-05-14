@@ -10,6 +10,8 @@ import 'package:glucose_companion/presentation/bloc/settings/settings_event.dart
 import 'package:glucose_companion/presentation/bloc/settings/settings_state.dart';
 import 'package:glucose_companion/presentation/pages/login_page.dart';
 import 'package:glucose_companion/services/settings_service.dart';
+import 'package:glucose_companion/presentation/bloc/prediction/prediction_bloc.dart';
+import 'package:glucose_companion/presentation/bloc/prediction/prediction_event.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +33,9 @@ class MyApp extends StatelessWidget {
             bloc.add(LoadSettingsEvent());
             return bloc;
           },
+        ),
+        BlocProvider<PredictionBloc>(
+          create: (context) => di.sl<PredictionBloc>(),
         ),
       ],
       child: BlocBuilder<SettingsBloc, SettingsState>(

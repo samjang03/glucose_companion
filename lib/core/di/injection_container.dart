@@ -22,6 +22,9 @@ import 'package:glucose_companion/core/ml/glucose_predictor.dart';
 import 'package:glucose_companion/data/repositories/prediction_repository_impl.dart';
 import 'package:glucose_companion/domain/repositories/prediction_repository.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_bloc.dart';
+import 'package:glucose_companion/data/repositories/analytics_repository_impl.dart';
+import 'package:glucose_companion/domain/repositories/analytics_repository.dart';
+import 'package:glucose_companion/presentation/bloc/analytics/analytics_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -68,6 +71,11 @@ Future<void> init() async {
     () => PredictionRepositoryImpl(sl(), sl()),
   );
 
+  // Додаємо репозиторій аналітики
+  sl.registerLazySingleton<AnalyticsRepository>(
+    () => AnalyticsRepositoryImpl(sl()),
+  );
+
   // BLoCs
   sl.registerFactory(
     () => HomeBloc(
@@ -79,6 +87,7 @@ Future<void> init() async {
   );
   sl.registerFactory(() => SettingsBloc(sl()));
   sl.registerFactory(() => PredictionBloc(sl<DexcomRepository>()));
+  sl.registerFactory(() => AnalyticsBloc(sl<AnalyticsRepository>()));
 
   // Initialize services
   await sl<SecureStorage>().init();

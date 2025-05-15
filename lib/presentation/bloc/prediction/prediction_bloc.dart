@@ -10,12 +10,17 @@ class PredictionBloc extends Bloc<PredictionEvent, PredictionState> {
 
   PredictionBloc(this._dexcomRepository) : super(PredictionInitial()) {
     on<LoadPredictionEvent>(_onLoadPrediction);
+
+    this.stream.listen((state) {
+      print("PredictionBloc state changed to: $state");
+    });
   }
 
   Future<void> _onLoadPrediction(
     LoadPredictionEvent event,
     Emitter<PredictionState> emit,
   ) async {
+    print("Starting prediction calculation...");
     emit(PredictionLoading());
     try {
       // Отримуємо останні дані для прогнозування
@@ -53,8 +58,10 @@ class PredictionBloc extends Bloc<PredictionEvent, PredictionState> {
           predictionTime: targetTime,
         ),
       );
+      print('Emitted prediction: $predictedValue at time $targetTime');
     } catch (e) {
       emit(PredictionError(e.toString()));
+      print('Prediction error: $e');
     }
   }
 

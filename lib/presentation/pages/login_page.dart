@@ -9,6 +9,7 @@ import 'package:glucose_companion/presentation/bloc/home/home_event.dart';
 import 'package:glucose_companion/presentation/pages/home_page.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'package:glucose_companion/presentation/bloc/analytics/analytics_bloc.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -60,6 +61,9 @@ class _LoginPageState extends State<LoginPage> {
 
       // Встановлюємо ID користувача для HomeBloc
       _homeBloc.add(SetUserIdEvent(userId));
+
+      // Додаємо встановлення ID користувача для AnalyticsBloc
+      sl<AnalyticsBloc>().updateUserId(userId);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

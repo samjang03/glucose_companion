@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:glucose_companion/core/di/injection_container.dart';
@@ -24,6 +26,9 @@ import 'package:glucose_companion/presentation/bloc/prediction/prediction_bloc.d
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_event.dart';
 import 'package:glucose_companion/presentation/widgets/prediction_card.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_state.dart';
+import 'package:glucose_companion/presentation/pages/analytics_page.dart';
+import 'package:glucose_companion/presentation/bloc/analytics/analytics_bloc.dart';
+import 'package:glucose_companion/presentation/widgets/stats_card.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -46,6 +51,10 @@ class _HomePageState extends State<HomePage>
   List<ActivityRecord> _activityRecords = [];
   bool _isLoading = true;
 
+  // Додаємо змінні для ручного прогнозу
+  double? _manualPredictedValue;
+  DateTime? _manualPredictionTime;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +62,9 @@ class _HomePageState extends State<HomePage>
     // Initialize BLoC
     _homeBloc = sl<HomeBloc>();
     _predictionBloc = sl<PredictionBloc>();
+
+    // Додаємо отримання AnalyticsBloc
+    final analyticsBloc = sl<AnalyticsBloc>();
 
     // Set session expiry handler
     _sessionManager.onSessionExpired = _handleSessionExpired;
@@ -64,6 +76,9 @@ class _HomePageState extends State<HomePage>
       // Викликаємо setState щоб оновити FAB при зміні вкладки
       if (mounted) {
         setState(() {});
+
+        // Якщо перейшли на вкладку аналітики, оновлюємо дані
+        if (_tabController.index == 1) {}
       }
     });
 
@@ -73,9 +88,94 @@ class _HomePageState extends State<HomePage>
     // Запустіть завантаження прогнозу після того, як віджет побудовано
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<PredictionBloc>().add(const LoadPredictionEvent());
+        _predictionBloc.add(const LoadPredictionEvent());
       }
     });
+  }
+
+  void _generateManualPrediction() {
+    if (_glucoseHistory.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No glucose data available for prediction'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      // Сортуємо дані за часом, найновіші в кінці
+      final sortedReadings = List<GlucoseReading>.from(_glucoseHistory)
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      final currentValue = sortedReadings.last.mmolL;
+
+      // Для тестування використовуємо поточне значення +/- 2 ммоль/л
+      final random = Random();
+      final change = (random.nextDouble() * 4) - 2; // Від -2 до +2
+
+      _manualPredictedValue = currentValue + change;
+      _manualPredictionTime = DateTime.now().add(const Duration(minutes: 60));
+
+      print(
+        'Generated manual prediction: $_manualPredictedValue at $_manualPredictionTime',
+      );
+
+      // Показуємо повідомлення
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Test prediction generated: ${_manualPredictedValue!.toStringAsFixed(1)} mmol/L',
+          ),
+          backgroundColor: Colors.purple,
+        ),
+      );
+    });
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _calculateManualPrediction() {
+    if (_glucoseHistory.isNotEmpty && _glucoseHistory.length >= 3) {
+      // Сортуємо дані за часом
+      final sortedReadings = List<GlucoseReading>.from(_glucoseHistory)
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      // Отримуємо останні три значення
+      final lastReadings = sortedReadings.sublist(sortedReadings.length - 3);
+
+      // Розраховуємо середню швидкість зміни
+      double rateSum = 0;
+      for (int i = 1; i < lastReadings.length; i++) {
+        final timeDiff =
+            lastReadings[i].timestamp
+                .difference(lastReadings[i - 1].timestamp)
+                .inMinutes;
+        if (timeDiff > 0) {
+          rateSum +=
+              (lastReadings[i].mmolL - lastReadings[i - 1].mmolL) / timeDiff;
+        }
+      }
+
+      // Уникаємо ділення на нуль
+      if (lastReadings.length > 1) {
+        final avgRatePerMinute = rateSum / (lastReadings.length - 1);
+
+        // Прогнозуємо на 60 хвилин вперед
+        setState(() {
+          _manualPredictedValue =
+              lastReadings.last.mmolL + (avgRatePerMinute * 60);
+          _manualPredictionTime = DateTime.now().add(
+            const Duration(minutes: 60),
+          );
+          print(
+            'Calculated manual prediction: $_manualPredictedValue at $_manualPredictionTime',
+          );
+        });
+      }
+    }
   }
 
   @override
@@ -115,6 +215,8 @@ class _HomePageState extends State<HomePage>
     _homeBloc.add(LoadCurrentGlucoseEvent());
     _homeBloc.add(const LoadGlucoseHistoryEvent(hours: 3));
     _homeBloc.add(LoadDailyRecordsEvent(DateTime.now()));
+
+    _predictionBloc.add(const LoadPredictionEvent());
 
     // Запуск оновлення прогнозу, якщо віджет вже побудовано
     if (mounted) {
@@ -318,6 +420,36 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildOverviewTab() {
+    // Отримуємо стан прогнозу через watch
+    final predictionState = context.watch<PredictionBloc>().state;
+
+    // Логуємо поточний стан прогнозу
+    print('Current prediction state in build: $predictionState');
+
+    // Ініціалізуємо змінні для прогнозованих даних
+    double? predictedValue;
+    DateTime? predictionTime;
+
+    // Оновлюємо змінні, якщо стан - PredictionLoaded
+    if (predictionState is PredictionLoaded) {
+      predictedValue = predictionState.predictedValue;
+      predictionTime = predictionState.predictionTime;
+      print('Using prediction from bloc: $predictedValue at $predictionTime');
+    } else {
+      // Якщо немає прогнозу від блоку, використовуємо ручний прогноз
+      if (_manualPredictedValue != null && _manualPredictionTime != null) {
+        predictedValue = _manualPredictedValue;
+        predictionTime = _manualPredictionTime;
+        print('Using manual prediction: $predictedValue at $predictionTime');
+      } else {
+        // Для тестування - фіксовані значення
+        // Розкоментуйте, щоб використовувати фіксований прогноз
+        // predictedValue = 8.5;
+        // predictionTime = DateTime.now().add(const Duration(minutes: 60));
+        // print('Using fixed test prediction: $predictedValue at $predictionTime');
+      }
+    }
+
     return RefreshIndicator(
       onRefresh: () async => _refreshData(),
       child: SingleChildScrollView(
@@ -349,6 +481,8 @@ class _HomePageState extends State<HomePage>
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Графік з прогнозом
                     SizedBox(
                       height: 250,
                       child:
@@ -360,8 +494,87 @@ class _HomePageState extends State<HomePage>
                                 data: GlucoseChartData.fromReadings(
                                   _glucoseHistory,
                                   DateTime.now(),
+                                  predictedValue: predictedValue,
+                                  predictionTime: predictionTime,
                                 ),
                               ),
+                    ),
+
+                    // Легенда до графіку
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(width: 12, height: 3, color: Colors.blue),
+                        const SizedBox(width: 4),
+                        const Text('History', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 16),
+                        Container(width: 12, height: 3, color: Colors.purple),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Prediction',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        const SizedBox(width: 16),
+                        Container(
+                          width: 12,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.red.withOpacity(0.5),
+                                width: 1,
+                                style: BorderStyle.solid,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Thresholds',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+
+                    // Кнопки для тестування
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            // Оновлення прогнозу через блок
+                            context.read<PredictionBloc>().add(
+                              const LoadPredictionEvent(),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Updating prediction...'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.update),
+                          label: const Text('Update Prediction'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.secondary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _generateManualPrediction,
+                          icon: const Icon(Icons.science),
+                          label: const Text('Test Prediction'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.tertiary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -369,7 +582,7 @@ class _HomePageState extends State<HomePage>
             ),
             const SizedBox(height: 16),
             BlocProvider<PredictionBloc>.value(
-              value: sl<PredictionBloc>(),
+              value: context.read<PredictionBloc>(),
               child: const PredictionCard(),
             ),
             const SizedBox(height: 16),
@@ -403,9 +616,7 @@ class _HomePageState extends State<HomePage>
                     DailyRecordsList(
                       insulinRecords: _insulinRecords,
                       carbRecords: _carbRecords,
-                      activityRecords:
-                          _activityRecords ??
-                          [], // додаємо порожній список, якщо _activityRecords ще не ініціалізований
+                      activityRecords: _activityRecords,
                       onEditInsulin: (record) {
                         _showInsulinDialog(record: record);
                       },
@@ -520,8 +731,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildAnalyticsTab() {
-    // Placeholder for analytics screen
-    return const Center(child: Text('Analytics - Coming Soon'));
+    return const AnalyticsPage();
   }
 
   void _showInsulinDialog({InsulinRecord? record}) {

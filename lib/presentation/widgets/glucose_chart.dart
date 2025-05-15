@@ -81,6 +81,15 @@ class GlucoseChart extends StatelessWidget {
                 );
               },
               getDrawingVerticalLine: (value) {
+                // Додаємо вертикальну пунктирну лінію для позначення теперішнього часу
+                if (value == 0) {
+                  return FlLine(
+                    color: Colors.red.withOpacity(0.5),
+                    strokeWidth: 1,
+                    dashArray: [5, 5],
+                  );
+                }
+
                 return FlLine(
                   color: Colors.grey.withOpacity(0.2),
                   strokeWidth: 1,
@@ -137,11 +146,17 @@ class GlucoseChart extends StatelessWidget {
                       final mgdlValue = GlucoseConverter.mmolToMgdl(flSpot.y);
                       valueText = mgdlValue.round().toString();
                     }
+
+                    // Визначаємо, чи це прогнозована точка
+                    final isPredicted = barSpot.barIndex == 1;
+
                     return LineTooltipItem(
-                      '$valueText ${GlucoseConverter.unitString(useMMOL)}',
-                      const TextStyle(
+                      '${valueText} ${GlucoseConverter.unitString(useMMOL)} ${isPredicted ? '(Predicted)' : ''}',
+                      TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
+                        fontStyle:
+                            isPredicted ? FontStyle.italic : FontStyle.normal,
                       ),
                     );
                   }).toList();
@@ -164,7 +179,7 @@ class GlucoseChart extends StatelessWidget {
                             .toList(),
                 isCurved: true,
                 gradient: LinearGradient(
-                  colors: data.gradientColors,
+                  colors: data.historyGradientColors,
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
@@ -197,7 +212,7 @@ class GlucoseChart extends StatelessWidget {
                   show: true,
                   gradient: LinearGradient(
                     colors:
-                        data.gradientColors
+                        data.historyGradientColors
                             .map((color) => color.withOpacity(0.3))
                             .toList(),
                     begin: Alignment.centerLeft,
@@ -205,6 +220,79 @@ class GlucoseChart extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // Лінія прогнозу (якщо є)
+              if (data.predictionSpots.isNotEmpty)
+                LineChartBarData(
+                  spots:
+                      useMMOL
+                          ? data.predictionSpots
+                          : data.predictionSpots
+                              .map(
+                                (spot) => FlSpot(
+                                  spot.x,
+                                  GlucoseConverter.mmolToMgdl(spot.y),
+                                ),
+                              )
+                              .toList(),
+                  isCurved: true,
+                  gradient: LinearGradient(
+                    colors: data.predictionGradientColors,
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  barWidth: 3,
+                  isStrokeCapRound: true,
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, barData, index) {
+                      // Визначаємо колір для точок прогнозу
+                      final mmolValue =
+                          useMMOL
+                              ? spot.y
+                              : GlucoseConverter.mgdlToMmol(spot.y);
+                      Color dotColor;
+                      if (mmolValue < lowThreshold) {
+                        dotColor = Colors.red;
+                      } else if (mmolValue > highThreshold) {
+                        dotColor = Colors.orange;
+                      } else {
+                        dotColor = Colors.purple;
+                      }
+
+                      // Показуємо лише останню точку (прогноз)
+                      if (index == data.predictionSpots.length - 1) {
+                        return FlDotCirclePainter(
+                          radius: 5,
+                          color: dotColor,
+                          strokeWidth: 2,
+                          strokeColor: Colors.white,
+                        );
+                      } else {
+                        // Для проміжних точок не показуємо крапки
+                        return FlDotCirclePainter(
+                          radius: 0,
+                          color: Colors.transparent,
+                          strokeWidth: 0,
+                          strokeColor: Colors.transparent,
+                        );
+                      }
+                    },
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    gradient: LinearGradient(
+                      colors:
+                          data.predictionGradientColors
+                              .map((color) => color.withOpacity(0.3))
+                              .toList(),
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                  ),
+                  dashArray: null,
+                ),
+
               // Лінія нижнього порогу
               LineChartBarData(
                 spots: [
@@ -251,8 +339,18 @@ class GlucoseChart extends StatelessWidget {
     String text;
     if (value == 0) {
       text = 'Now';
+    } else if (value > 0) {
+      // Майбутній час (прогноз)
+      final hours = (value / 60).floor();
+      final minutes = (value % 60).floor();
+
+      if (hours > 0) {
+        text = '+${hours}h${minutes > 0 ? '${minutes}m' : ''}';
+      } else {
+        text = '+${minutes}m';
+      }
     } else {
-      // Конвертуємо хвилини в години
+      // Минулий час (історія)
       final hours = (value.abs() / 60).floor();
       final minutes = (value.abs() % 60).floor();
 

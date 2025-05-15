@@ -12,9 +12,18 @@ import 'package:glucose_companion/presentation/pages/login_page.dart';
 import 'package:glucose_companion/services/settings_service.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_bloc.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_event.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+
+// Імпортуйте згенерований файл конфігурації (генерується при виконанні наступних кроків)
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Ініціалізація Firebase
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   await di.init();
   runApp(const MyApp());
 }

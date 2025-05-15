@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "937772175264",
+    "project_id": "bg-prediction-app",
+    "storage_bucket": "bg-prediction-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:937772175264:android:69aea865ff696748ab9ec5",
+        "android_client_info": {
+          "package_name": "bg-prediction-app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAGhFctv-r2vOfeARZo9p87TV0JQtc-a6s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

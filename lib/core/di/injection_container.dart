@@ -25,6 +25,7 @@ import 'package:glucose_companion/presentation/bloc/prediction/prediction_bloc.d
 import 'package:glucose_companion/data/repositories/analytics_repository_impl.dart';
 import 'package:glucose_companion/domain/repositories/analytics_repository.dart';
 import 'package:glucose_companion/presentation/bloc/analytics/analytics_bloc.dart';
+import 'package:glucose_companion/services/mock_data_service.dart';
 
 final sl = GetIt.instance;
 
@@ -40,6 +41,7 @@ Future<void> init() async {
 
   // Services
   sl.registerLazySingleton(() => SettingsService());
+  sl.registerLazySingleton(() => MockDataService());
 
   // Data sources
   sl.registerLazySingleton(

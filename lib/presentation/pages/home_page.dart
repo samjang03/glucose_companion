@@ -25,6 +25,11 @@ import 'package:glucose_companion/presentation/bloc/prediction/prediction_event.
 import 'package:glucose_companion/presentation/widgets/prediction_card.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_state.dart';
 import 'package:glucose_companion/presentation/pages/analytics_page.dart';
+import 'package:glucose_companion/presentation/bloc/alerts/alerts_bloc.dart';
+import 'package:glucose_companion/presentation/bloc/alerts/alerts_state.dart';
+import 'package:glucose_companion/presentation/bloc/alerts/alerts_event.dart';
+import 'package:glucose_companion/presentation/pages/alerts_page.dart';
+import 'package:badges/badges.dart' as badges;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -39,6 +44,9 @@ class _HomePageState extends State<HomePage>
   late final HomeBloc _homeBloc;
   late final PredictionBloc _predictionBloc;
   late TabController _tabController;
+  late final AlertsBloc _alertsBloc;
+  int _activeAlertsCount = 0;
+  String _currentUserId = 'default_user';
 
   GlucoseReading? _currentReading;
   List<GlucoseReading> _glucoseHistory = [];
@@ -51,6 +59,9 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
 
+    // Ініціалізація AlertsBloc
+    _alertsBloc = sl<AlertsBloc>();
+
     // Initialize BLoC
     _homeBloc = sl<HomeBloc>();
     _predictionBloc = sl<PredictionBloc>();
@@ -59,7 +70,12 @@ class _HomePageState extends State<HomePage>
     _sessionManager.onSessionExpired = _handleSessionExpired;
 
     // Initialize tab controller
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
+
+    // Завантажуємо активні сповіщення для бейджу
+    sl<AlertsBloc>().add(
+      LoadAlertsEvent(userId: 'default_user', activeOnly: true),
+    );
 
     _tabController.addListener(() {
       // Викликаємо setState щоб оновити FAB при зміні вкладки
@@ -70,6 +86,18 @@ class _HomePageState extends State<HomePage>
 
     // Load initial data
     _refreshData();
+
+    // Завантажуємо активні сповіщення
+    _alertsBloc.add(LoadAlertsEvent(userId: _currentUserId, activeOnly: true));
+
+    // Слухаємо зміни стану для оновлення лічильника сповіщень
+    _alertsBloc.stream.listen((state) {
+      if (state is AlertsLoaded && state.activeOnly) {
+        setState(() {
+          _activeAlertsCount = state.alerts.length;
+        });
+      }
+    });
 
     // Запустіть завантаження прогнозу після того, як віджет побудовано
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -211,6 +239,7 @@ class _HomePageState extends State<HomePage>
         BlocProvider.value(value: _homeBloc),
         BlocProvider.value(value: sl<SettingsBloc>()),
         BlocProvider.value(value: _predictionBloc),
+        BlocProvider.value(value: _alertsBloc),
         // BlocProvider(
         //   create:
         //       (context) =>
@@ -288,10 +317,28 @@ class _HomePageState extends State<HomePage>
             ],
             bottom: TabBar(
               controller: _tabController,
-              tabs: const [
-                Tab(text: 'Overview', icon: Icon(Icons.home)),
-                Tab(text: 'Analytics', icon: Icon(Icons.analytics)),
-                Tab(text: 'Settings', icon: Icon(Icons.settings)),
+              tabs: [
+                const Tab(text: 'Overview', icon: Icon(Icons.home)),
+                const Tab(text: 'Analytics', icon: Icon(Icons.analytics)),
+                // Оновлена вкладка без BlocBuilder
+                Tab(
+                  text: 'Alerts',
+                  icon:
+                      _activeAlertsCount > 0
+                          ? Badge(
+                            label: Text(
+                              _activeAlertsCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                            ),
+                            child: const Icon(Icons.notifications),
+                          )
+                          : const Icon(Icons.notifications),
+                ),
+
+                const Tab(text: 'Settings', icon: Icon(Icons.settings)),
               ],
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white70,
@@ -303,6 +350,7 @@ class _HomePageState extends State<HomePage>
             children: [
               _buildOverviewTab(),
               _buildAnalyticsTab(),
+              const AlertsPage(),
               const SettingsPage(),
             ],
           ),

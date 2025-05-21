@@ -9,12 +9,18 @@ import 'package:glucose_companion/domain/repositories/dexcom_repository.dart';
 import 'package:glucose_companion/domain/repositories/insulin_repository.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_event.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_state.dart';
+import 'package:glucose_companion/services/alert_service.dart';
+import 'package:glucose_companion/presentation/bloc/settings/settings_bloc.dart';
+import 'package:glucose_companion/presentation/bloc/settings/settings_state.dart';
+import 'package:glucose_companion/data/models/user_settings.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final DexcomRepository _dexcomRepository;
   final InsulinRepository _insulinRepository;
   final CarbRepository _carbRepository;
   final ActivityRepository _activityRepository;
+  final AlertService _alertService;
+  final SettingsBloc _settingsBloc;
   Timer? _autoRefreshTimer;
 
   String _currentUserId = 'default_user'; // Буде оновлено при вході в систему
@@ -24,6 +30,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     this._insulinRepository,
     this._carbRepository,
     this._activityRepository,
+    this._alertService,
+    this._settingsBloc,
   ) : super(HomeInitial()) {
     on<LoadCurrentGlucoseEvent>(_onLoadCurrentGlucose);
     on<LoadGlucoseHistoryEvent>(_onLoadGlucoseHistory);
@@ -54,6 +62,18 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       final reading = await _dexcomRepository.getCurrentGlucoseReading();
       emit(CurrentGlucoseLoaded(reading));
+
+      // Отримуємо налаштування для перевірки сповіщень
+      final settingsState = _settingsBloc.state;
+      if (settingsState is SettingsLoaded &&
+          settingsState.settings.alertsEnabled) {
+        // Перевіряємо показник глюкози і створюємо сповіщення, якщо потрібно
+        _alertService.checkGlucoseReading(
+          reading,
+          _currentUserId,
+          settingsState.settings,
+        );
+      }
     } catch (e) {
       emit(HomeLoadingFailure(e.toString()));
     }

@@ -23,6 +23,10 @@ import 'package:glucose_companion/data/repositories/prediction_repository_impl.d
 import 'package:glucose_companion/domain/repositories/prediction_repository.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_bloc.dart';
 import 'package:glucose_companion/services/mock_data_service.dart';
+import 'package:glucose_companion/data/repositories/alert_repository_impl.dart';
+import 'package:glucose_companion/domain/repositories/alert_repository.dart';
+import 'package:glucose_companion/presentation/bloc/alerts/alerts_bloc.dart';
+import 'package:glucose_companion/services/alert_service.dart';
 
 final sl = GetIt.instance;
 
@@ -39,6 +43,7 @@ Future<void> init() async {
   // Services
   sl.registerLazySingleton(() => SettingsService());
   sl.registerLazySingleton(() => MockDataService());
+  sl.registerLazySingleton(() => AlertService(sl()));
 
   // Data sources
   sl.registerLazySingleton(
@@ -61,6 +66,7 @@ Future<void> init() async {
   sl.registerLazySingleton<ActivityRepository>(
     () => ActivityRepositoryImpl(sl()),
   );
+  sl.registerLazySingleton<AlertRepository>(() => AlertRepositoryImpl(sl()));
 
   // ML-компоненти
   sl.registerLazySingleton(() => GlucosePredictor());
@@ -77,10 +83,19 @@ Future<void> init() async {
       sl<InsulinRepository>(),
       sl<CarbRepository>(),
       sl<ActivityRepository>(),
+      sl<AlertService>(),
+      sl<SettingsBloc>(),
     ),
   );
   sl.registerFactory(() => SettingsBloc(sl()));
-  sl.registerFactory(() => PredictionBloc(sl<DexcomRepository>()));
+  sl.registerFactory(
+    () => PredictionBloc(
+      sl<DexcomRepository>(),
+      sl<AlertService>(),
+      sl<SettingsBloc>(),
+    ),
+  );
+  sl.registerFactory(() => AlertsBloc(sl<AlertRepository>()));
 
   // Initialize services
   await sl<SecureStorage>().init();

@@ -4,12 +4,24 @@ import 'package:glucose_companion/data/models/glucose_reading.dart';
 import 'package:glucose_companion/domain/repositories/dexcom_repository.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_event.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_state.dart';
+import 'package:glucose_companion/services/alert_service.dart';
+import 'package:glucose_companion/presentation/bloc/settings/settings_bloc.dart';
+import 'package:glucose_companion/presentation/bloc/settings/settings_state.dart';
 
 class PredictionBloc extends Bloc<PredictionEvent, PredictionState> {
   final DexcomRepository _dexcomRepository;
+  final AlertService _alertService;
+  final SettingsBloc _settingsBloc;
+  String _currentUserId = 'default_user';
 
-  PredictionBloc(this._dexcomRepository) : super(PredictionInitial()) {
+  PredictionBloc(this._dexcomRepository, this._alertService, this._settingsBloc)
+    : super(PredictionInitial()) {
     on<LoadPredictionEvent>(_onLoadPrediction);
+    on<SetUserIdEvent>(_onSetUserId);
+  }
+
+  void _onSetUserId(SetUserIdEvent event, Emitter<PredictionState> emit) {
+    _currentUserId = event.userId;
   }
 
   Future<void> _onLoadPrediction(
@@ -44,6 +56,19 @@ class PredictionBloc extends Bloc<PredictionEvent, PredictionState> {
       final targetTime = latestReading.timestamp.add(
         const Duration(minutes: 60),
       );
+
+      // Перевіряємо прогноз на необхідність генерації сповіщень
+      final settingsState = _settingsBloc.state;
+      if (settingsState is SettingsLoaded &&
+          settingsState.settings.alertsEnabled) {
+        _alertService.checkPrediction(
+          predictedValue,
+          _currentUserId,
+          settingsState.settings,
+          targetTime,
+          confidenceLevel,
+        );
+      }
 
       emit(
         PredictionLoaded(

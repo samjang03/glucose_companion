@@ -20,3 +20,12 @@ class LoadPredictionEvent extends PredictionEvent {
 class ClearPredictionEvent extends PredictionEvent {
   // Подія для очищення прогнозу
 }
+
+class SetUserIdEvent extends PredictionEvent {
+  final String userId;
+
+  const SetUserIdEvent(this.userId);
+
+  @override
+  List<Object> get props => [userId];
+}

@@ -24,6 +24,7 @@ import 'package:glucose_companion/presentation/bloc/prediction/prediction_bloc.d
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_event.dart';
 import 'package:glucose_companion/presentation/widgets/prediction_card.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_state.dart';
+import 'package:glucose_companion/presentation/pages/analytics_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -521,7 +522,7 @@ class _HomePageState extends State<HomePage>
 
   Widget _buildAnalyticsTab() {
     // Placeholder for analytics screen
-    return const Center(child: Text('Analytics - Coming Soon'));
+    return const AnalyticsPage();
   }
 
   void _showInsulinDialog({InsulinRecord? record}) {

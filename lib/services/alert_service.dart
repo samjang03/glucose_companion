@@ -184,4 +184,61 @@ class AlertService {
   String _formatTime(DateTime dateTime) {
     return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
+
+  // Генерує тестові сповіщення для демонстрації
+  Future<void> generateTestAlerts(String userId) async {
+    final now = DateTime.now();
+
+    // Створюємо різні типи сповіщень
+    await _createAlert(
+      userId: userId,
+      type: 'urgent_low',
+      readingId: null,
+      value: 2.8,
+      message: 'TEST: Urgent Low Glucose Alert',
+      severity: 'critical',
+      timestamp: now.subtract(const Duration(minutes: 5)),
+    );
+
+    await _createAlert(
+      userId: userId,
+      type: 'high',
+      readingId: null,
+      value: 11.5,
+      message: 'TEST: High Glucose Alert',
+      severity: 'warning',
+      timestamp: now.subtract(const Duration(minutes: 10)),
+    );
+
+    await _createAlert(
+      userId: userId,
+      type: 'prediction_low',
+      readingId: null,
+      value: 3.5,
+      message:
+          'TEST: Predicted Low Glucose at ${_formatTime(now.add(const Duration(minutes: 30)))}',
+      severity: 'info',
+      timestamp: now,
+    );
+
+    await _createAlert(
+      userId: userId,
+      type: 'rapid_fall',
+      readingId: null,
+      value: 5.8,
+      message: 'TEST: Glucose Falling Rapidly',
+      severity: 'warning',
+      timestamp: now.subtract(const Duration(minutes: 15)),
+    );
+
+    await _createAlert(
+      userId: userId,
+      type: 'data_gap',
+      readingId: null,
+      value: null,
+      message: 'TEST: No glucose data for 25 minutes',
+      severity: 'warning',
+      timestamp: now.subtract(const Duration(minutes: 20)),
+    );
+  }
 }

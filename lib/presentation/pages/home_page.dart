@@ -29,6 +29,7 @@ import 'package:glucose_companion/presentation/bloc/alerts/alerts_bloc.dart';
 import 'package:glucose_companion/presentation/bloc/alerts/alerts_state.dart';
 import 'package:glucose_companion/presentation/bloc/alerts/alerts_event.dart';
 import 'package:glucose_companion/presentation/pages/alerts_page.dart';
+import 'package:glucose_companion/presentation/widgets/modern_tab_bar.dart';
 import 'package:badges/badges.dart' as badges;
 
 class HomePage extends StatefulWidget {
@@ -226,6 +227,11 @@ class _HomePageState extends State<HomePage>
                 RecordActivityEvent(activityType: activityType, notes: notes),
               );
             }
+
+            // ВАЖЛИВО: Оновлюємо записи за сьогодні після збереження
+            Future.delayed(const Duration(milliseconds: 500), () {
+              _homeBloc.add(LoadDailyRecordsEvent(DateTime.now()));
+            });
           },
         );
       },
@@ -240,11 +246,6 @@ class _HomePageState extends State<HomePage>
         BlocProvider.value(value: sl<SettingsBloc>()),
         BlocProvider.value(value: _predictionBloc),
         BlocProvider.value(value: _alertsBloc),
-        // BlocProvider(
-        //   create:
-        //       (context) =>
-        //           sl<PredictionBloc>()..add(const LoadPredictionEvent()),
-        // ),
       ],
       child: MultiBlocListener(
         listeners: [
@@ -320,13 +321,12 @@ class _HomePageState extends State<HomePage>
               tabs: [
                 const Tab(text: 'Overview', icon: Icon(Icons.home)),
                 const Tab(text: 'Analytics', icon: Icon(Icons.analytics)),
-                // Оновлена вкладка без BlocBuilder
                 Tab(
                   text: 'Alerts',
                   icon:
                       _activeAlertsCount > 0
-                          ? Badge(
-                            label: Text(
+                          ? badges.Badge(
+                            badgeContent: Text(
                               _activeAlertsCount.toString(),
                               style: const TextStyle(
                                 color: Colors.white,
@@ -337,7 +337,6 @@ class _HomePageState extends State<HomePage>
                           )
                           : const Icon(Icons.notifications),
                 ),
-
                 const Tab(text: 'Settings', icon: Icon(Icons.settings)),
               ],
               labelColor: Colors.white,
@@ -362,6 +361,38 @@ class _HomePageState extends State<HomePage>
                   )
                   : null,
         ),
+      ),
+    );
+  }
+
+  Widget _buildTabItem(IconData icon, String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [Icon(icon), const SizedBox(height: 4), Text(label)],
+      ),
+    );
+  }
+
+  Widget _buildTabWithBadge(IconData icon, String label, int badgeCount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          badgeCount > 0
+              ? badges.Badge(
+                badgeContent: Text(
+                  badgeCount.toString(),
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
+                child: Icon(icon),
+              )
+              : Icon(icon),
+          const SizedBox(height: 4),
+          Text(label),
+        ],
       ),
     );
   }
@@ -453,8 +484,7 @@ class _HomePageState extends State<HomePage>
                       insulinRecords: _insulinRecords,
                       carbRecords: _carbRecords,
                       activityRecords:
-                          _activityRecords ??
-                          [], // додаємо порожній список, якщо _activityRecords ще не ініціалізований
+                          _activityRecords, // Переконайтеся, що тут передається правильний список
                       onEditInsulin: (record) {
                         _showInsulinDialog(record: record);
                       },
@@ -462,7 +492,9 @@ class _HomePageState extends State<HomePage>
                         _showCarbsDialog(record: record);
                       },
                       onEditActivity: (record) {
-                        _showActivityDialog(record: record);
+                        _showActivityDialog(
+                          record: record,
+                        ); // Тут має бути ActivityRecord
                       },
                       onDeleteRecord: (type, id) {
                         _homeBloc.add(DeleteRecordEvent(type, id));
@@ -604,6 +636,11 @@ class _HomePageState extends State<HomePage>
                 ),
               );
             }
+
+            // ВАЖЛИВО: Оновлюємо записи за сьогодні після збереження
+            Future.delayed(const Duration(milliseconds: 500), () {
+              _homeBloc.add(LoadDailyRecordsEvent(DateTime.now()));
+            });
           },
         );
       },
@@ -615,6 +652,7 @@ class _HomePageState extends State<HomePage>
       context: context,
       builder: (context) {
         return CarbsInputDialog(
+          // Правильний діалог для вуглеводів
           initialGrams: record?.grams,
           initialMealType: record?.mealType,
           initialNotes: record?.notes,
@@ -641,6 +679,11 @@ class _HomePageState extends State<HomePage>
                 ),
               );
             }
+
+            // ВАЖЛИВО: Оновлюємо записи за сьогодні після збереження
+            Future.delayed(const Duration(milliseconds: 500), () {
+              _homeBloc.add(LoadDailyRecordsEvent(DateTime.now()));
+            });
           },
         );
       },

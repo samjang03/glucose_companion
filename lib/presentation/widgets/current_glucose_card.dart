@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:glucose_companion/core/l10n/app_localizations.dart';
 import 'package:glucose_companion/core/utils/glucose_converter.dart';
 import 'package:glucose_companion/data/models/glucose_reading.dart';
 import 'package:glucose_companion/presentation/bloc/settings/settings_bloc.dart';
@@ -41,9 +42,9 @@ class CurrentGlucoseCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Current Glucose',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.currentGlucose,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -58,9 +59,9 @@ class CurrentGlucoseCard extends StatelessWidget {
                 if (isLoading)
                   const CircularProgressIndicator()
                 else if (reading == null)
-                  const Text(
-                    'No data available',
-                    style: TextStyle(fontSize: 18),
+                  Text(
+                    AppLocalizations.noDataAvailable,
+                    style: const TextStyle(fontSize: 18),
                   )
                 else
                   Column(
@@ -83,7 +84,7 @@ class CurrentGlucoseCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            useMMOL ? 'mmol/L' : 'mg/dL',
+                            useMMOL ? 'ммоль/л' : 'мг/дл',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
@@ -95,7 +96,9 @@ class CurrentGlucoseCard extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            reading!.trendDirection,
+                            _getLocalizedTrendDirection(
+                              reading!.trendDirection,
+                            ),
                             style: TextStyle(
                               fontSize: 16,
                               color: _getGlucoseColor(reading!.mmolL, theme),
@@ -113,7 +116,7 @@ class CurrentGlucoseCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Last update: ${DateFormat('HH:mm').format(reading!.timestamp)}',
+                        '${AppLocalizations.lastUpdate} ${DateFormat('HH:mm').format(reading!.timestamp)}',
                         style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
@@ -133,6 +136,28 @@ class CurrentGlucoseCard extends StatelessWidget {
       return Colors.orange;
     } else {
       return theme.colorScheme.primary;
+    }
+  }
+
+  String _getLocalizedTrendDirection(String trendDirection) {
+    switch (trendDirection.toLowerCase()) {
+      case 'stable':
+      case 'flat':
+        return AppLocalizations.stable;
+      case 'rising':
+        return AppLocalizations.get('rising');
+      case 'falling':
+        return AppLocalizations.get('falling');
+      case 'rising rapidly':
+        return AppLocalizations.get('rising_rapidly');
+      case 'falling rapidly':
+        return AppLocalizations.get('falling_rapidly');
+      case 'rising slightly':
+        return AppLocalizations.get('rising_slightly');
+      case 'falling slightly':
+        return AppLocalizations.get('falling_slightly');
+      default:
+        return trendDirection;
     }
   }
 }

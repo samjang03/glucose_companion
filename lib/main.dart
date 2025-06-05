@@ -60,7 +60,7 @@ class MyApp extends StatelessWidget {
           }
 
           return MaterialApp(
-            title: 'Glucose Companion',
+            title: 'SweetSight',
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: themeMode,

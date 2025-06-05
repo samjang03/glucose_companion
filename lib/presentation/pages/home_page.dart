@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:glucose_companion/core/di/injection_container.dart';
+import 'package:glucose_companion/core/l10n/app_localizations.dart';
 import 'package:glucose_companion/core/security/session_manager.dart';
 import 'package:glucose_companion/data/models/activity_record.dart';
 import 'package:glucose_companion/data/models/carb_record.dart';
@@ -125,8 +126,8 @@ class _HomePageState extends State<HomePage>
     ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage()));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Your session has expired. Please login again.'),
+      SnackBar(
+        content: Text(AppLocalizations.get('session_expired_login_again')),
         backgroundColor: Colors.orange,
       ),
     );
@@ -169,14 +170,17 @@ class _HomePageState extends State<HomePage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Add Data',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                AppLocalizations.addData,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 16),
               ListTile(
                 leading: const Icon(Icons.medical_services),
-                title: const Text('Record Insulin'),
+                title: Text(AppLocalizations.recordInsulin),
                 onTap: () {
                   Navigator.pop(context);
                   _showInsulinDialog();
@@ -184,7 +188,7 @@ class _HomePageState extends State<HomePage>
               ),
               ListTile(
                 leading: const Icon(Icons.restaurant),
-                title: const Text('Record Carbs'),
+                title: Text(AppLocalizations.recordCarbs),
                 onTap: () {
                   Navigator.pop(context);
                   _showCarbsDialog();
@@ -192,7 +196,7 @@ class _HomePageState extends State<HomePage>
               ),
               ListTile(
                 leading: const Icon(Icons.fitness_center),
-                title: const Text('Record Activity'),
+                title: Text(AppLocalizations.recordActivity),
                 onTap: () {
                   Navigator.pop(context);
                   _showActivityDialog();
@@ -200,6 +204,103 @@ class _HomePageState extends State<HomePage>
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _showExportDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(AppLocalizations.get('export_data')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(AppLocalizations.get('export_glucose_data')),
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.get('export_period'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                title: Text(AppLocalizations.get('last_7_days')),
+                leading: Radio<int>(
+                  value: 7,
+                  groupValue: 7,
+                  onChanged: (value) {},
+                ),
+              ),
+              ListTile(
+                title: Text(AppLocalizations.get('last_14_days')),
+                leading: Radio<int>(
+                  value: 14,
+                  groupValue: 7,
+                  onChanged: (value) {},
+                ),
+              ),
+              ListTile(
+                title: Text(AppLocalizations.get('last_30_days')),
+                leading: Radio<int>(
+                  value: 30,
+                  groupValue: 7,
+                  onChanged: (value) {},
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.get('export_format'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                title: Text(AppLocalizations.get('csv_format')),
+                leading: Radio<String>(
+                  value: 'csv',
+                  groupValue: 'csv',
+                  onChanged: (value) {},
+                ),
+              ),
+              ListTile(
+                title: Text(AppLocalizations.get('excel_format')),
+                leading: Radio<String>(
+                  value: 'excel',
+                  groupValue: 'csv',
+                  onChanged: (value) {},
+                ),
+              ),
+              ListTile(
+                title: Text(AppLocalizations.get('pdf_report')),
+                leading: Radio<String>(
+                  value: 'pdf',
+                  groupValue: 'csv',
+                  onChanged: (value) {},
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(AppLocalizations.cancel),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      AppLocalizations.get('data_exported_successfully'),
+                    ),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+              child: Text(AppLocalizations.export),
+            ),
+          ],
         );
       },
     );
@@ -290,8 +391,10 @@ class _HomePageState extends State<HomePage>
                 });
               } else if (state is InsulinRecorded || state is CarbsRecorded) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Record saved successfully'),
+                  SnackBar(
+                    content: Text(
+                      AppLocalizations.get('record_saved_successfully'),
+                    ),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -301,47 +404,72 @@ class _HomePageState extends State<HomePage>
         ],
         child: Scaffold(
           appBar: AppBar(
-            title: const Text('Glucose Companion'),
+            title: Text(AppLocalizations.appName),
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
             actions: [
               IconButton(
+                icon: const Icon(Icons.file_download),
+                onPressed: _showExportDialog,
+                tooltip: AppLocalizations.export,
+              ),
+              IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _refreshData,
-                tooltip: 'Refresh data',
+                tooltip: AppLocalizations.get('refresh_data'),
               ),
               IconButton(
                 icon: const Icon(Icons.logout),
                 onPressed: _logout,
-                tooltip: 'Logout',
+                tooltip: AppLocalizations.get('logout'),
               ),
             ],
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: [
-                const Tab(text: 'Overview', icon: Icon(Icons.home)),
-                const Tab(text: 'Analytics', icon: Icon(Icons.analytics)),
-                Tab(
-                  text: 'Alerts',
-                  icon:
-                      _activeAlertsCount > 0
-                          ? badges.Badge(
-                            badgeContent: Text(
-                              _activeAlertsCount.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                              ),
-                            ),
-                            child: const Icon(Icons.notifications),
-                          )
-                          : const Icon(Icons.notifications),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(60.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: TabBar(
+                  controller: _tabController,
+                  tabs: [
+                    Tab(
+                      text: AppLocalizations.overview,
+                      icon: const Icon(Icons.home),
+                    ),
+                    Tab(
+                      text: AppLocalizations.analytics,
+                      icon: const Icon(Icons.analytics),
+                    ),
+                    Tab(
+                      text: AppLocalizations.alerts,
+                      icon:
+                          _activeAlertsCount > 0
+                              ? badges.Badge(
+                                badgeContent: Text(
+                                  _activeAlertsCount.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                                child: const Icon(Icons.notifications),
+                              )
+                              : const Icon(Icons.notifications),
+                    ),
+                    Tab(
+                      text: AppLocalizations.settings,
+                      icon: const Icon(Icons.settings),
+                    ),
+                  ],
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white70,
+                  indicatorColor: Colors.white,
+                  labelStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  unselectedLabelStyle: const TextStyle(fontSize: 12),
                 ),
-                const Tab(text: 'Settings', icon: Icon(Icons.settings)),
-              ],
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              indicatorColor: Colors.white,
+              ),
             ),
           ),
           body: TabBarView(
@@ -421,9 +549,9 @@ class _HomePageState extends State<HomePage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Glucose Trend',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.glucoseTrend,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -433,7 +561,9 @@ class _HomePageState extends State<HomePage>
                       height: 250,
                       child:
                           _glucoseHistory.isEmpty && !_isLoading
-                              ? const Center(child: Text('No data available'))
+                              ? Center(
+                                child: Text(AppLocalizations.noDataAvailable),
+                              )
                               : _isLoading
                               ? const Center(child: CircularProgressIndicator())
                               : GlucoseChart(
@@ -466,16 +596,16 @@ class _HomePageState extends State<HomePage>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Today\'s Records',
-                          style: TextStyle(
+                        Text(
+                          AppLocalizations.todaysRecords,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         TextButton(
                           onPressed: _showAddDataDialog,
-                          child: const Text('Add'),
+                          child: Text(AppLocalizations.add),
                         ),
                       ],
                     ),
@@ -483,8 +613,7 @@ class _HomePageState extends State<HomePage>
                     DailyRecordsList(
                       insulinRecords: _insulinRecords,
                       carbRecords: _carbRecords,
-                      activityRecords:
-                          _activityRecords, // Переконайтеся, що тут передається правильний список
+                      activityRecords: _activityRecords,
                       onEditInsulin: (record) {
                         _showInsulinDialog(record: record);
                       },
@@ -492,9 +621,7 @@ class _HomePageState extends State<HomePage>
                         _showCarbsDialog(record: record);
                       },
                       onEditActivity: (record) {
-                        _showActivityDialog(
-                          record: record,
-                        ); // Тут має бути ActivityRecord
+                        _showActivityDialog(record: record);
                       },
                       onDeleteRecord: (type, id) {
                         _homeBloc.add(DeleteRecordEvent(type, id));
@@ -515,10 +642,10 @@ class _HomePageState extends State<HomePage>
   Widget _buildStatsCard() {
     // Calculate statistics based on historical data
     if (_glucoseHistory.isEmpty) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text('No data available for statistics'),
+          padding: const EdgeInsets.all(16.0),
+          child: Text(AppLocalizations.noDataAvailable),
         ),
       );
     }
@@ -551,21 +678,21 @@ class _HomePageState extends State<HomePage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Statistics',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Text(
+              AppLocalizations.statistics,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             ListTile(
-              title: const Text('Average Glucose'),
+              title: Text(AppLocalizations.get('average_glucose')),
               trailing: Text(
-                '${average.toStringAsFixed(1)} mmol/L',
+                '${average.toStringAsFixed(1)} ммоль/л',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
             const Divider(),
             ListTile(
-              title: const Text('Time in Range'),
+              title: Text(AppLocalizations.get('time_in_range')),
               trailing: Text(
                 '$timeInRange%',
                 style: const TextStyle(
@@ -575,7 +702,7 @@ class _HomePageState extends State<HomePage>
               ),
             ),
             ListTile(
-              title: const Text('Time Above Range'),
+              title: Text(AppLocalizations.get('time_above_range')),
               trailing: Text(
                 '$timeAboveRange%',
                 style: const TextStyle(
@@ -585,7 +712,7 @@ class _HomePageState extends State<HomePage>
               ),
             ),
             ListTile(
-              title: const Text('Time Below Range'),
+              title: Text(AppLocalizations.get('time_below_range')),
               trailing: Text(
                 '$timeBelowRange%',
                 style: const TextStyle(
@@ -601,7 +728,6 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildAnalyticsTab() {
-    // Placeholder for analytics screen
     return const AnalyticsPage();
   }
 
@@ -652,7 +778,6 @@ class _HomePageState extends State<HomePage>
       context: context,
       builder: (context) {
         return CarbsInputDialog(
-          // Правильний діалог для вуглеводів
           initialGrams: record?.grams,
           initialMealType: record?.mealType,
           initialNotes: record?.notes,

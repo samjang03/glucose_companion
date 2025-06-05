@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:glucose_companion/core/l10n/app_localizations.dart';
 import 'package:glucose_companion/core/utils/glucose_converter.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_bloc.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_event.dart';
@@ -28,9 +29,9 @@ class PredictionCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Glucose Prediction',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.glucosePrediction,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -56,10 +57,16 @@ class PredictionCard extends StatelessWidget {
 
   Widget _buildPredictionContent(BuildContext context, PredictionState state) {
     if (state is PredictionLoading) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: CircularProgressIndicator(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 8),
+              Text(AppLocalizations.loading),
+            ],
+          ),
         ),
       );
     } else if (state is PredictionLoaded) {
@@ -80,7 +87,7 @@ class PredictionCard extends StatelessWidget {
                   ? state.predictedValue.toStringAsFixed(1)
                   : predValue.round().toString();
 
-          final units = useMMOL ? 'mmol/L' : 'mg/dL';
+          final units = useMMOL ? 'ммоль/л' : 'мг/дл';
 
           // Визначаємо колір на основі прогнозованого значення
           Color valueColor;
@@ -92,16 +99,6 @@ class PredictionCard extends StatelessWidget {
             valueColor = Theme.of(context).colorScheme.primary;
           }
 
-          // Визначаємо текст для рівня впевненості
-          String confidenceText;
-          if (state.confidenceLevel >= 0.8) {
-            confidenceText = 'High confidence';
-          } else if (state.confidenceLevel >= 0.5) {
-            confidenceText = 'Medium confidence';
-          } else {
-            confidenceText = 'Low confidence';
-          }
-
           final timeFormat = DateFormat('HH:mm');
 
           return Padding(
@@ -110,7 +107,7 @@ class PredictionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  'In 1 hour, at ${timeFormat.format(state.predictionTime)}',
+                  '${AppLocalizations.in1HourAt} ${timeFormat.format(state.predictionTime)}',
                   style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 8),
@@ -131,30 +128,7 @@ class PredictionCard extends StatelessWidget {
                     Text(units, style: const TextStyle(fontSize: 16)),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 16,
-                      color:
-                          state.confidenceLevel >= 0.5
-                              ? Colors.green
-                              : Colors.orange,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      confidenceText,
-                      style: TextStyle(
-                        color:
-                            state.confidenceLevel >= 0.5
-                                ? Colors.green
-                                : Colors.orange,
-                      ),
-                    ),
-                  ],
-                ),
+                const SizedBox(height: 16),
               ],
             ),
           );
@@ -177,7 +151,7 @@ class PredictionCard extends StatelessWidget {
               onPressed: () {
                 context.read<PredictionBloc>().add(const LoadPredictionEvent());
               },
-              child: const Text('Try Again'),
+              child: Text(AppLocalizations.tryAgain),
             ),
           ],
         ),
@@ -187,16 +161,16 @@ class PredictionCard extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            const Text(
-              'No prediction available',
-              style: TextStyle(fontSize: 16),
+            Text(
+              AppLocalizations.noPredictionAvailable,
+              style: const TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
                 context.read<PredictionBloc>().add(const LoadPredictionEvent());
               },
-              child: const Text('Get Prediction'),
+              child: Text(AppLocalizations.getPrediction),
             ),
           ],
         ),

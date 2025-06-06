@@ -1,12 +1,7 @@
+// lib/presentation/pages/alerts_page.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:glucose_companion/core/di/injection_container.dart';
+import 'package:glucose_companion/services/realistic_alerts_service.dart';
 import 'package:glucose_companion/data/models/alert.dart';
-import 'package:glucose_companion/presentation/bloc/alerts/alerts_bloc.dart';
-import 'package:glucose_companion/presentation/bloc/alerts/alerts_event.dart';
-import 'package:glucose_companion/presentation/bloc/alerts/alerts_state.dart';
-import 'package:glucose_companion/presentation/bloc/home/home_bloc.dart';
-import 'package:glucose_companion/presentation/bloc/home/home_state.dart';
 import 'package:intl/intl.dart';
 
 class AlertsPage extends StatefulWidget {
@@ -18,41 +13,16 @@ class AlertsPage extends StatefulWidget {
 
 class _AlertsPageState extends State<AlertsPage> with TickerProviderStateMixin {
   late TabController _tabController;
-  late AlertsBloc _alertsBloc;
+  List<Alert> _allAlerts = [];
+  List<Alert> _activeAlerts = [];
+  List<Alert> _historyAlerts = [];
   String _userId = 'default_user';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _alertsBloc = sl<AlertsBloc>();
-
-    // Get the current user ID from Home bloc state
-    final homeState = sl<HomeBloc>().state;
-    if (homeState is CurrentGlucoseLoaded ||
-        homeState is GlucoseHistoryLoaded ||
-        homeState is DailyRecordsLoaded) {
-      // Update user ID when we have it
-      // This would be better handled with a dedicated user bloc
-      setState(() {
-        _userId = 'default_user'; // Replace with actual user ID when available
-      });
-    }
-
-    // Load active alerts by default
-    _loadAlerts(activeOnly: true);
-
-    // Listener for tab changes
-    _tabController.addListener(() {
-      if (_tabController.indexIsChanging) {
-        // Tab 0 = Active alerts, Tab 1 = All alerts/history
-        _loadAlerts(activeOnly: _tabController.index == 0);
-      }
-    });
-  }
-
-  void _loadAlerts({required bool activeOnly}) {
-    _alertsBloc.add(LoadAlertsEvent(userId: _userId, activeOnly: activeOnly));
+    _loadAlerts();
   }
 
   @override
@@ -61,169 +31,88 @@ class _AlertsPageState extends State<AlertsPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  void _loadAlerts() {
+    _allAlerts = RealisticAlertsService.generateRealisticAlerts();
+    _activeAlerts = _allAlerts.where((alert) => alert.isActive).toList();
+    _historyAlerts = _allAlerts.where((alert) => !alert.isActive).toList();
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _alertsBloc,
-      child: Scaffold(
-        body: Column(
-          children: [
-            // Tab bar for switching between active and all alerts
-            TabBar(
+    return Scaffold(
+      body: Column(
+        children: [
+          // Tab bar for switching between active and all alerts
+          TabBar(
+            controller: _tabController,
+            labelColor: Theme.of(context).colorScheme.primary,
+            tabs: const [
+              Tab(text: 'Active Alerts'),
+              Tab(text: 'Alert History'),
+            ],
+          ),
+
+          // Tab content
+          Expanded(
+            child: TabBarView(
               controller: _tabController,
-              labelColor: Theme.of(context).colorScheme.primary,
-              tabs: const [
-                Tab(text: 'Active Alerts'),
-                Tab(text: 'Alert History'),
+              children: [
+                // Active alerts tab
+                _buildAlertsList(context, _activeAlerts, true),
+
+                // Alert history tab
+                _buildAlertsList(context, _historyAlerts, false),
               ],
             ),
-
-            // Tab content
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  // Active alerts tab
-                  _buildMockAlertsList(context, true),
-
-                  // Alert history tab
-                  _buildMockAlertsList(context, false),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  // Цей метод створює список мок-сповіщень для демонстрації
-  Widget _buildMockAlertsList(BuildContext context, bool isActiveTab) {
-    final now = DateTime.now();
-
-    // Створюємо тестові сповіщення
-    final List<Alert> mockAlerts =
-        isActiveTab
-            ?
-            // Активні сповіщення
-            [
-              Alert(
-                id: 1,
-                userId: _userId,
-                type: 'urgent_low',
-                timestamp: now.subtract(const Duration(minutes: 5)),
-                value: 2.8,
-                message: 'Urgent Low Glucose Alert',
-                severity: 'critical',
-                status: 'pending',
-              ),
-              Alert(
-                id: 2,
-                userId: _userId,
-                type: 'high',
-                timestamp: now.subtract(const Duration(minutes: 10)),
-                value: 11.5,
-                message: 'High Glucose Alert',
-                severity: 'warning',
-                status: 'pending',
-              ),
-              Alert(
-                id: 3,
-                userId: _userId,
-                type: 'prediction_low',
-                timestamp: now,
-                value: 3.5,
-                message:
-                    'Predicted Low Glucose at ${DateFormat('HH:mm').format(now.add(const Duration(minutes: 30)))}',
-                severity: 'info',
-                status: 'pending',
-              ),
-              Alert(
-                id: 4,
-                userId: _userId,
-                type: 'rapid_fall',
-                timestamp: now.subtract(const Duration(minutes: 15)),
-                value: 5.8,
-                message: 'Glucose Falling Rapidly',
-                severity: 'warning',
-                status: 'pending',
-              ),
-              Alert(
-                id: 5,
-                userId: _userId,
-                type: 'data_gap',
-                timestamp: now.subtract(const Duration(minutes: 20)),
-                value: null,
-                message: 'No glucose data for 25 minutes',
-                severity: 'warning',
-                status: 'pending',
-              ),
-            ]
-            :
-            // Архівні сповіщення (історія сповіщень)
-            [
-              Alert(
-                id: 6,
-                userId: _userId,
-                type: 'urgent_high',
-                timestamp: now.subtract(const Duration(hours: 2)),
-                value: 15.7,
-                message: 'Urgent High Glucose',
-                severity: 'critical',
-                status: 'acknowledged',
-                acknowledgedAt: now.subtract(const Duration(hours: 1)),
-              ),
-              Alert(
-                id: 7,
-                userId: _userId,
-                type: 'high',
-                timestamp: now.subtract(const Duration(hours: 4)),
-                value: 12.2,
-                message: 'High Glucose',
-                severity: 'warning',
-                status: 'dismissed',
-                acknowledgedAt: now.subtract(
-                  const Duration(hours: 3, minutes: 50),
-                ),
-              ),
-              Alert(
-                id: 8,
-                userId: _userId,
-                type: 'low',
-                timestamp: now.subtract(const Duration(hours: 6)),
-                value: 3.7,
-                message: 'Low Glucose',
-                severity: 'warning',
-                status: 'acknowledged',
-                acknowledgedAt: now.subtract(
-                  const Duration(hours: 5, minutes: 55),
-                ),
-              ),
-              Alert(
-                id: 9,
-                userId: _userId,
-                type: 'data_gap',
-                timestamp: now.subtract(const Duration(hours: 8)),
-                value: null,
-                message: 'No glucose data for 30 minutes',
-                severity: 'warning',
-                status: 'dismissed',
-                acknowledgedAt: now.subtract(
-                  const Duration(hours: 7, minutes: 45),
-                ),
-              ),
-            ];
+  Widget _buildAlertsList(
+    BuildContext context,
+    List<Alert> alerts,
+    bool isActiveTab,
+  ) {
+    if (alerts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isActiveTab ? Icons.check_circle_outline : Icons.history,
+              size: 64,
+              color: isActiveTab ? Colors.green : Colors.grey,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isActiveTab ? 'No Active Alerts' : 'No Alert History',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isActiveTab
+                  ? 'All glucose levels are within normal range'
+                  : 'No alerts have been recorded yet',
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ],
+        ),
+      );
+    }
 
     return ListView.builder(
-      itemCount: mockAlerts.length,
+      itemCount: alerts.length,
       itemBuilder: (context, index) {
-        final alert = mockAlerts[index];
-        return _buildAlertItem(context, alert);
+        final alert = alerts[index];
+        return _buildAlertItem(context, alert, isActiveTab);
       },
     );
   }
 
-  Widget _buildAlertItem(BuildContext context, Alert alert) {
+  Widget _buildAlertItem(BuildContext context, Alert alert, bool isActive) {
     // Define icon and color based on severity
     IconData icon;
     Color color;
@@ -256,7 +145,7 @@ class _AlertsPageState extends State<AlertsPage> with TickerProviderStateMixin {
           child: Icon(icon, color: color),
         ),
         title: Text(
-          alert.message,
+          _getAlertTitle(alert),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Column(
@@ -284,29 +173,60 @@ class _AlertsPageState extends State<AlertsPage> with TickerProviderStateMixin {
           ],
         ),
         trailing:
-            alert.status == 'pending'
+            isActive && alert.status == 'pending'
                 ? Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       icon: const Icon(Icons.check_circle_outline),
                       tooltip: 'Acknowledge',
-                      onPressed: () {
-                        // В демо-режимі нічого не робимо
-                      },
+                      onPressed: () => _acknowledgeAlert(alert),
                     ),
                     IconButton(
                       icon: const Icon(Icons.cancel_outlined),
                       tooltip: 'Dismiss',
-                      onPressed: () {
-                        // В демо-режимі нічого не робимо
-                      },
+                      onPressed: () => _dismissAlert(alert),
                     ),
                   ],
                 )
                 : null,
       ),
     );
+  }
+
+  String _getAlertTitle(Alert alert) {
+    switch (alert.type) {
+      case 'urgent_low':
+        return 'Urgent Low Glucose';
+      case 'low_glucose':
+        return 'Low Glucose';
+      case 'high_glucose':
+        return 'High Glucose';
+      case 'urgent_high':
+        return 'Urgent High Glucose';
+      case 'rapid_fall':
+        return 'Glucose Falling Rapidly';
+      case 'rapid_rise':
+        return 'Glucose Rising Rapidly';
+      case 'prediction_low':
+        // Витягуємо час з повідомлення
+        final timeMatch = RegExp(
+          r'at (\d{1,2}:\d{2})',
+        ).firstMatch(alert.message);
+        final time = timeMatch?.group(1) ?? '10:15';
+        return 'Predicted Low Glucose at $time';
+      case 'prediction_high':
+        // Витягуємо час з повідомлення
+        final timeMatch = RegExp(
+          r'at (\d{1,2}:\d{2})',
+        ).firstMatch(alert.message);
+        final time = timeMatch?.group(1) ?? '14:35';
+        return 'Predicted High Glucose at $time';
+      case 'data_gap':
+        return 'No glucose data for 30 minutes';
+      default:
+        return alert.message;
+    }
   }
 
   Color _getValueColor(double value) {
@@ -316,5 +236,43 @@ class _AlertsPageState extends State<AlertsPage> with TickerProviderStateMixin {
       return Colors.orange;
     }
     return Theme.of(context).colorScheme.primary;
+  }
+
+  void _acknowledgeAlert(Alert alert) {
+    setState(() {
+      _activeAlerts.remove(alert);
+      final updatedAlert = alert.copyWith(
+        status: 'acknowledged',
+        acknowledgedAt: DateTime.now(),
+      );
+      _historyAlerts.insert(0, updatedAlert);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Alert acknowledged'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _dismissAlert(Alert alert) {
+    setState(() {
+      _activeAlerts.remove(alert);
+      final updatedAlert = alert.copyWith(
+        status: 'dismissed',
+        acknowledgedAt: DateTime.now(),
+      );
+      _historyAlerts.insert(0, updatedAlert);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Alert dismissed'),
+        backgroundColor: Colors.grey,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 }

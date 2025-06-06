@@ -1,3 +1,4 @@
+// lib/presentation/pages/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:glucose_companion/core/di/injection_container.dart';
@@ -30,7 +31,9 @@ import 'package:glucose_companion/presentation/bloc/alerts/alerts_state.dart';
 import 'package:glucose_companion/presentation/bloc/alerts/alerts_event.dart';
 import 'package:glucose_companion/presentation/pages/alerts_page.dart';
 import 'package:glucose_companion/presentation/widgets/modern_tab_bar.dart';
+import 'package:glucose_companion/presentation/widgets/glucose_trend_chart.dart';
 import 'package:badges/badges.dart' as badges;
+import 'dart:math' as math;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -156,52 +159,130 @@ class _HomePageState extends State<HomePage>
     }
   }
 
+  // Конвертація з GlucoseReading в GlucoseDataPoint для нового графіка
+  List<GlucoseDataPoint> _convertToHistoryData(List<GlucoseReading> readings) {
+    final now = DateTime.now();
+    final twoHoursAgo = now.subtract(const Duration(hours: 2));
+
+    // Фільтруємо дані за останні 2 години та округлюємо до десятих
+    return readings
+        .where((reading) => reading.timestamp.isAfter(twoHoursAgo))
+        .map(
+          (reading) => GlucoseDataPoint(
+            timestamp: reading.timestamp,
+            glucose: double.parse(reading.mmolL.toStringAsFixed(1)),
+            isPrediction: false,
+          ),
+        )
+        .toList();
+  }
+
+  // Генерація тестових даних для прогнозу (замініть на реальні дані з PredictionBloc)
+  List<GlucoseDataPoint> _generatePredictionData() {
+    if (_currentReading == null) return [];
+
+    final now = DateTime.now();
+    final List<GlucoseDataPoint> data = [];
+
+    // Починаємо з поточного значення
+    double currentValue = _currentReading!.mmolL;
+
+    // Generate 1 hour of prediction data (12 points, every 5 minutes)
+    for (int i = 1; i <= 12; i++) {
+      final timestamp = now.add(Duration(minutes: i * 5));
+
+      // Плавний підйом без гармошки
+      final timeProgress = i / 12.0;
+      final smoothChange =
+          currentValue + (timeProgress * 0.6); // підйом на 0.6 за годину
+
+      // Мінімальний шум для реалістичності
+      final variation = (math.sin(i * 0.5) * 0.05); // дуже малі коливання
+
+      final glucose = double.parse(
+        (smoothChange + variation).toStringAsFixed(1),
+      );
+
+      data.add(
+        GlucoseDataPoint(
+          timestamp: timestamp,
+          glucose: glucose.clamp(currentValue - 1.0, currentValue + 2.0),
+          isPrediction: true,
+        ),
+      );
+    }
+
+    return data;
+  }
+
   void _showAddDataDialog() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: const Color(0xFF2D2D2D),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
+        return Container(
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
               const Text(
                 'Add Data',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.medical_services),
-                title: const Text('Record Insulin'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showInsulinDialog();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.restaurant),
-                title: const Text('Record Carbs'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showCarbsDialog();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.fitness_center),
-                title: const Text('Record Activity'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showActivityDialog();
-                },
-              ),
+              const SizedBox(height: 20),
+              _buildAddDataOption(Icons.medication, 'Record Insulin', () {
+                Navigator.pop(context);
+                _showInsulinDialog();
+              }),
+              _buildAddDataOption(Icons.restaurant, 'Record Carbs', () {
+                Navigator.pop(context);
+                _showCarbsDialog();
+              }),
+              _buildAddDataOption(Icons.fitness_center, 'Record Activity', () {
+                Navigator.pop(context);
+                _showActivityDialog();
+              }),
+              const SizedBox(height: 20),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAddDataOption(IconData icon, String label, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF4A5CFF).withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: const Color(0xFF4A5CFF)),
+        ),
+        title: Text(label, style: const TextStyle(color: Colors.white)),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: onTap,
+      ),
     );
   }
 
@@ -300,48 +381,166 @@ class _HomePageState extends State<HomePage>
           ),
         ],
         child: Scaffold(
+          backgroundColor: Colors.black,
           appBar: AppBar(
-            title: const Text('Glucose Companion'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Colors.white,
+            backgroundColor: const Color(0xFF4A5CFF),
+            elevation: 0,
+            title: const Text(
+              'SweetSight',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh, color: Colors.white),
                 onPressed: _refreshData,
                 tooltip: 'Refresh data',
               ),
               IconButton(
-                icon: const Icon(Icons.logout),
+                icon: const Icon(Icons.logout, color: Colors.white),
                 onPressed: _logout,
                 tooltip: 'Logout',
               ),
             ],
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: [
-                const Tab(text: 'Overview', icon: Icon(Icons.home)),
-                const Tab(text: 'Analytics', icon: Icon(Icons.analytics)),
-                Tab(
-                  text: 'Alerts',
-                  icon:
-                      _activeAlertsCount > 0
-                          ? badges.Badge(
-                            badgeContent: Text(
-                              _activeAlertsCount.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(60.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: TabBar(
+                  controller: _tabController,
+                  tabs: [
+                    // Overview Tab
+                    SizedBox(
+                      height: 58, // Трохи збільшили висоту для кращого балансу
+                      child: Tab(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.home,
+                              size: 20,
+                            ), // Трохи збільшили іконку
+                            const SizedBox(height: 3),
+                            Flexible(
+                              child: Text(
+                                'Overview',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                ), // Збільшили до 13px
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ),
-                            child: const Icon(Icons.notifications),
-                          )
-                          : const Icon(Icons.notifications),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Analytics Tab
+                    SizedBox(
+                      height: 58,
+                      child: Tab(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.analytics, size: 20),
+                            const SizedBox(height: 3),
+                            Flexible(
+                              child: Text(
+                                'Analytics',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                ), // Збільшили до 13px
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Alerts Tab with Badge
+                    SizedBox(
+                      height: 58,
+                      child: Tab(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _activeAlertsCount > 0
+                                ? badges.Badge(
+                                  badgeContent: Text(
+                                    _activeAlertsCount.toString(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.notifications,
+                                    size: 20,
+                                  ),
+                                )
+                                : const Icon(Icons.notifications, size: 20),
+                            const SizedBox(height: 3),
+                            Flexible(
+                              child: Text(
+                                'Alerts',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                ), // Збільшили до 13px
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Settings Tab
+                    SizedBox(
+                      height: 58,
+                      child: Tab(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.settings, size: 20),
+                            const SizedBox(height: 3),
+                            Flexible(
+                              child: Text(
+                                'Settings',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                ), // Збільшили до 13px
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white70,
+                  indicatorColor: Colors.white,
+                  indicatorWeight: 2,
+                  // Прибираємо стандартні підписи, оскільки використовуємо власні
+                  labelStyle: const TextStyle(fontSize: 0),
+                  unselectedLabelStyle: const TextStyle(fontSize: 0),
+                  // Мінімальні відступи між табами
+                  labelPadding: const EdgeInsets.symmetric(
+                    horizontal: 1.0,
+                  ), // Трохи зменшили
+                  // Розтягуємо таби на всю ширину
+                  isScrollable: false,
                 ),
-                const Tab(text: 'Settings', icon: Icon(Icons.settings)),
-              ],
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              indicatorColor: Colors.white,
+              ),
             ),
           ),
           body: TabBarView(
@@ -357,42 +556,11 @@ class _HomePageState extends State<HomePage>
               _tabController.index == 0
                   ? FloatingActionButton(
                     onPressed: _showAddDataDialog,
-                    child: const Icon(Icons.add),
+                    backgroundColor: const Color(0xFF4A5CFF),
+                    child: const Icon(Icons.add, color: Colors.white),
                   )
                   : null,
         ),
-      ),
-    );
-  }
-
-  Widget _buildTabItem(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [Icon(icon), const SizedBox(height: 4), Text(label)],
-      ),
-    );
-  }
-
-  Widget _buildTabWithBadge(IconData icon, String label, int badgeCount) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          badgeCount > 0
-              ? badges.Badge(
-                badgeContent: Text(
-                  badgeCount.toString(),
-                  style: const TextStyle(color: Colors.white, fontSize: 10),
-                ),
-                child: Icon(icon),
-              )
-              : Icon(icon),
-          const SizedBox(height: 4),
-          Text(label),
-        ],
       ),
     );
   }
@@ -405,57 +573,123 @@ class _HomePageState extends State<HomePage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            CurrentGlucoseCard(
-              reading: _currentReading,
-              isLoading: _isLoading,
-              onRefresh: _refreshData,
-            ),
-            const SizedBox(height: 24),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
+            // Current Glucose Card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Glucose Trend',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Current Glucose',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                      IconButton(
+                        onPressed: _refreshData,
+                        icon: const Icon(Icons.refresh, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  if (_isLoading)
+                    const CircularProgressIndicator(color: Color(0xFF4A5CFF))
+                  else if (_currentReading != null) ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _currentReading!.mmolL.toStringAsFixed(1),
+                          style: const TextStyle(
+                            color: Color(0xFF4A5CFF),
+                            fontSize: 48,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'mmol/L',
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 250,
-                      child:
-                          _glucoseHistory.isEmpty && !_isLoading
-                              ? const Center(child: Text('No data available'))
-                              : _isLoading
-                              ? const Center(child: CircularProgressIndicator())
-                              : GlucoseChart(
-                                data: GlucoseChartData.fromReadings(
-                                  _glucoseHistory,
-                                  DateTime.now(),
-                                ),
-                              ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _currentReading!.trendDirection,
+                          style: TextStyle(
+                            color: const Color(0xFF4A5CFF).withOpacity(0.8),
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _currentReading!.trendArrow,
+                          style: TextStyle(
+                            color: const Color(0xFF4A5CFF).withOpacity(0.8),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Last update: ${_currentReading!.timestamp.hour}:${_currentReading!.timestamp.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ] else
+                    const Text(
+                      'No glucose data available',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            BlocProvider<PredictionBloc>.value(
-              value: sl<PredictionBloc>(),
-              child: const PredictionCard(),
+
+            const SizedBox(height: 20),
+
+            // Glucose Trend Chart - новий график
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child:
+                  _glucoseHistory.isEmpty && _isLoading
+                      ? Container(
+                        height: 300,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF4A5CFF),
+                          ),
+                        ),
+                      )
+                      : GlucoseTrendChart(
+                        historyData: _convertToHistoryData(_glucoseHistory),
+                        predictionData: _generatePredictionData(),
+                        lowThreshold: 3.9,
+                        highThreshold: 10.0,
+                      ),
             ),
+
             const SizedBox(height: 16),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
+
+            // Today's Records Card
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Padding(
@@ -469,13 +703,17 @@ class _HomePageState extends State<HomePage>
                         const Text(
                           'Today\'s Records',
                           style: TextStyle(
+                            color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         TextButton(
                           onPressed: _showAddDataDialog,
-                          child: const Text('Add'),
+                          child: const Text(
+                            'Add',
+                            style: TextStyle(color: Color(0xFF4A5CFF)),
+                          ),
                         ),
                       ],
                     ),
@@ -483,8 +721,7 @@ class _HomePageState extends State<HomePage>
                     DailyRecordsList(
                       insulinRecords: _insulinRecords,
                       carbRecords: _carbRecords,
-                      activityRecords:
-                          _activityRecords, // Переконайтеся, що тут передається правильний список
+                      activityRecords: _activityRecords,
                       onEditInsulin: (record) {
                         _showInsulinDialog(record: record);
                       },
@@ -492,9 +729,7 @@ class _HomePageState extends State<HomePage>
                         _showCarbsDialog(record: record);
                       },
                       onEditActivity: (record) {
-                        _showActivityDialog(
-                          record: record,
-                        ); // Тут має бути ActivityRecord
+                        _showActivityDialog(record: record);
                       },
                       onDeleteRecord: (type, id) {
                         _homeBloc.add(DeleteRecordEvent(type, id));
@@ -504,6 +739,7 @@ class _HomePageState extends State<HomePage>
                 ),
               ),
             ),
+
             const SizedBox(height: 16),
             _buildStatsCard(),
           ],
@@ -515,10 +751,17 @@ class _HomePageState extends State<HomePage>
   Widget _buildStatsCard() {
     // Calculate statistics based on historical data
     if (_glucoseHistory.isEmpty) {
-      return const Card(
-        child: Padding(
+      return Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Padding(
           padding: EdgeInsets.all(16.0),
-          child: Text('No data available for statistics'),
+          child: Text(
+            'No data available for statistics',
+            style: TextStyle(color: Colors.white),
+          ),
         ),
       );
     }
@@ -543,9 +786,11 @@ class _HomePageState extends State<HomePage>
       1,
     );
 
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -553,49 +798,44 @@ class _HomePageState extends State<HomePage>
           children: [
             const Text(
               'Statistics',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
-            ListTile(
-              title: const Text('Average Glucose'),
-              trailing: Text(
-                '${average.toStringAsFixed(1)} mmol/L',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+            _buildStatItem(
+              'Average Glucose',
+              '${average.toStringAsFixed(1)} mmol/L',
+              Colors.white,
             ),
-            const Divider(),
-            ListTile(
-              title: const Text('Time in Range'),
-              trailing: Text(
-                '$timeInRange%',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
+            const Divider(color: Colors.grey),
+            _buildStatItem('Time in Range', '$timeInRange%', Colors.green),
+            _buildStatItem(
+              'Time Above Range',
+              '$timeAboveRange%',
+              Colors.orange,
             ),
-            ListTile(
-              title: const Text('Time Above Range'),
-              trailing: Text(
-                '$timeAboveRange%',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.orange,
-                ),
-              ),
-            ),
-            ListTile(
-              title: const Text('Time Below Range'),
-              trailing: Text(
-                '$timeBelowRange%',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red,
-                ),
-              ),
-            ),
+            _buildStatItem('Time Below Range', '$timeBelowRange%', Colors.red),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String title, String value, Color valueColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.white)),
+          Text(
+            value,
+            style: TextStyle(fontWeight: FontWeight.bold, color: valueColor),
+          ),
+        ],
       ),
     );
   }
@@ -652,7 +892,6 @@ class _HomePageState extends State<HomePage>
       context: context,
       builder: (context) {
         return CarbsInputDialog(
-          // Правильний діалог для вуглеводів
           initialGrams: record?.grams,
           initialMealType: record?.mealType,
           initialNotes: record?.notes,

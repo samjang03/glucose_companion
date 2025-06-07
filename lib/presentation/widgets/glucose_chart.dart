@@ -7,7 +7,9 @@ import 'package:glucose_companion/presentation/bloc/settings/settings_bloc.dart'
 import 'package:glucose_companion/presentation/bloc/settings/settings_state.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_bloc.dart';
 import 'package:glucose_companion/presentation/bloc/prediction/prediction_state.dart';
-import 'package:intl/intl.dart';
+import 'dart:ui' as ui; // Додаємо явний імпорт для TextDirection
+import 'package:intl/intl.dart'
+    hide TextDirection; // Приховуємо TextDirection з intl
 
 class GlucoseChart extends StatelessWidget {
   final GlucoseChartData data;
@@ -62,152 +64,190 @@ class GlucoseChart extends StatelessWidget {
                 _buildLegend(context),
                 const SizedBox(height: 8),
 
-                // Основний графік
+                // Основний графік з власними мітками
                 Expanded(
-                  child: LineChart(
-                    LineChartData(
-                      gridData: FlGridData(
-                        show: true,
-                        drawVerticalLine: true,
-                        horizontalInterval: useMMOL ? 1 : 20,
-                        verticalInterval: 60, // Фіксуємо інтервал на 60 хвилин
-                        getDrawingHorizontalLine: (value) {
-                          final checkValue =
-                              useMMOL
-                                  ? value
-                                  : GlucoseConverter.mgdlToMmol(value);
-                          return FlLine(
-                            color:
-                                (useMMOL &&
-                                            (value == lowThreshold ||
-                                                value == highThreshold)) ||
-                                        (!useMMOL &&
-                                            (checkValue == lowThreshold ||
-                                                checkValue == highThreshold))
-                                    ? Colors.red.withOpacity(0.3)
-                                    : Colors.grey.withOpacity(0.2),
-                            strokeWidth:
-                                (useMMOL &&
-                                            (value == lowThreshold ||
-                                                value == highThreshold)) ||
-                                        (!useMMOL &&
-                                            (checkValue == lowThreshold ||
-                                                checkValue == highThreshold))
-                                    ? 2
-                                    : 1,
-                            dashArray:
-                                (useMMOL &&
-                                            (value == lowThreshold ||
-                                                value == highThreshold)) ||
-                                        (!useMMOL &&
-                                            (checkValue == lowThreshold ||
-                                                checkValue == highThreshold))
-                                    ? [5, 5]
-                                    : null,
-                          );
-                        },
-                        getDrawingVerticalLine: (value) {
-                          // Вертикальна лінія для поділу історії та прогнозу
-                          if (value == 0) {
-                            return FlLine(
-                              color: Colors.grey.withOpacity(0.5),
-                              strokeWidth: 2,
-                              dashArray: [5, 5],
-                            );
-                          }
-                          return FlLine(
-                            color: Colors.grey.withOpacity(0.2),
-                            strokeWidth: 1,
-                          );
-                        },
-                      ),
-                      titlesData: FlTitlesData(
-                        show: true,
-                        rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 35,
-                            interval: 60, // Чітко визначений інтервал
-                            getTitlesWidget:
-                                (value, meta) =>
-                                    bottomTitleWidgets(value, meta),
-                          ),
-                        ),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            interval: useMMOL ? 1 : 20,
-                            getTitlesWidget:
-                                (value, meta) =>
-                                    leftTitleWidgets(value, meta, useMMOL),
-                            reservedSize: 50,
-                          ),
-                        ),
-                      ),
-                      borderData: FlBorderData(
-                        show: true,
-                        border: Border.all(
-                          color: const Color(0xff37434d),
-                          width: 1,
-                        ),
-                      ),
-                      minX: -180, // 3 години назад
-                      maxX: 60, // 1 година вперед
-                      minY:
-                          useMMOL
-                              ? data.minY
-                              : GlucoseConverter.mmolToMgdl(data.minY),
-                      maxY:
-                          useMMOL
-                              ? data.maxY
-                              : GlucoseConverter.mmolToMgdl(data.maxY),
-                      lineTouchData: LineTouchData(
-                        enabled: true,
-                        touchTooltipData: LineTouchTooltipData(
-                          tooltipBgColor: Colors.blueGrey.withOpacity(0.8),
-                          tooltipRoundedRadius: 8,
-                          getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-                            return touchedBarSpots.map((barSpot) {
-                              final flSpot = barSpot;
-                              String valueText;
-                              if (useMMOL) {
-                                valueText = flSpot.y.toStringAsFixed(1);
-                              } else {
-                                final mgdlValue =
+                  child: Column(
+                    children: [
+                      // Основний графік без міток осі X
+                      Expanded(
+                        child: LineChart(
+                          LineChartData(
+                            gridData: FlGridData(
+                              show: true,
+                              drawVerticalLine: true,
+                              horizontalInterval: useMMOL ? 1 : 20,
+                              verticalInterval: 60,
+                              getDrawingHorizontalLine: (value) {
+                                final checkValue =
                                     useMMOL
-                                        ? GlucoseConverter.mmolToMgdl(flSpot.y)
-                                        : flSpot.y;
-                                valueText = mgdlValue.round().toString();
-                              }
+                                        ? value
+                                        : GlucoseConverter.mgdlToMmol(value);
+                                return FlLine(
+                                  color:
+                                      (useMMOL &&
+                                                  (value == lowThreshold ||
+                                                      value ==
+                                                          highThreshold)) ||
+                                              (!useMMOL &&
+                                                  (checkValue == lowThreshold ||
+                                                      checkValue ==
+                                                          highThreshold))
+                                          ? Colors.red.withOpacity(0.3)
+                                          : Colors.grey.withOpacity(0.2),
+                                  strokeWidth:
+                                      (useMMOL &&
+                                                  (value == lowThreshold ||
+                                                      value ==
+                                                          highThreshold)) ||
+                                              (!useMMOL &&
+                                                  (checkValue == lowThreshold ||
+                                                      checkValue ==
+                                                          highThreshold))
+                                          ? 2
+                                          : 1,
+                                  dashArray:
+                                      (useMMOL &&
+                                                  (value == lowThreshold ||
+                                                      value ==
+                                                          highThreshold)) ||
+                                              (!useMMOL &&
+                                                  (checkValue == lowThreshold ||
+                                                      checkValue ==
+                                                          highThreshold))
+                                          ? [5, 5]
+                                          : null,
+                                );
+                              },
+                              getDrawingVerticalLine: (value) {
+                                final fixedPositions = [-180, -60, 0, 60];
 
-                              // Визначаємо тип точки
-                              String typeText =
-                                  flSpot.x <= 0 ? 'Історія' : 'Прогноз';
+                                for (final pos in fixedPositions) {
+                                  if ((value - pos).abs() <= 5.0) {
+                                    if (pos == 0) {
+                                      return FlLine(
+                                        color: Colors.orange.withOpacity(0.7),
+                                        strokeWidth: 2,
+                                        dashArray: [8, 4],
+                                      );
+                                    } else {
+                                      return FlLine(
+                                        color: Colors.grey.withOpacity(0.3),
+                                        strokeWidth: 1,
+                                      );
+                                    }
+                                  }
+                                }
 
-                              return LineTooltipItem(
-                                '$typeText\n$valueText ${GlucoseConverter.unitString(useMMOL)}',
-                                const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                return FlLine(
+                                  color: Colors.transparent,
+                                  strokeWidth: 0,
+                                );
+                              },
+                            ),
+                            titlesData: FlTitlesData(
+                              show: true,
+                              rightTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                              topTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                              bottomTitles: const AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: false,
+                                ), // Вимикаємо стандартні мітки
+                              ),
+                              leftTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  interval: useMMOL ? 1 : 20,
+                                  getTitlesWidget:
+                                      (value, meta) => leftTitleWidgets(
+                                        value,
+                                        meta,
+                                        useMMOL,
+                                      ),
+                                  reservedSize: 50,
                                 ),
-                              );
-                            }).toList();
-                          },
+                              ),
+                            ),
+                            borderData: FlBorderData(
+                              show: true,
+                              border: Border.all(
+                                color: const Color(0xff37434d),
+                                width: 1,
+                              ),
+                            ),
+                            minX: -180, // 3 години назад
+                            maxX: 60, // 1 година вперед
+                            minY:
+                                useMMOL
+                                    ? data.minY
+                                    : GlucoseConverter.mmolToMgdl(data.minY),
+                            maxY:
+                                useMMOL
+                                    ? data.maxY
+                                    : GlucoseConverter.mmolToMgdl(data.maxY),
+                            lineTouchData: LineTouchData(
+                              enabled: true,
+                              touchTooltipData: LineTouchTooltipData(
+                                tooltipBgColor: Colors.blueGrey.withOpacity(
+                                  0.8,
+                                ),
+                                tooltipRoundedRadius: 8,
+                                getTooltipItems: (
+                                  List<LineBarSpot> touchedBarSpots,
+                                ) {
+                                  return touchedBarSpots.map((barSpot) {
+                                    final flSpot = barSpot;
+                                    String valueText;
+                                    if (useMMOL) {
+                                      valueText = flSpot.y.toStringAsFixed(1);
+                                    } else {
+                                      final mgdlValue =
+                                          useMMOL
+                                              ? GlucoseConverter.mmolToMgdl(
+                                                flSpot.y,
+                                              )
+                                              : flSpot.y;
+                                      valueText = mgdlValue.round().toString();
+                                    }
+
+                                    // Визначаємо тип точки
+                                    String typeText =
+                                        flSpot.x <= 0 ? 'Історія' : 'Прогноз';
+
+                                    return LineTooltipItem(
+                                      '$typeText\n$valueText ${GlucoseConverter.unitString(useMMOL)}',
+                                      const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    );
+                                  }).toList();
+                                },
+                              ),
+                              handleBuiltInTouches: true,
+                            ),
+                            lineBarsData: _buildLineBarsData(
+                              historySpots,
+                              predictionSpots,
+                              useMMOL,
+                            ),
+                          ),
                         ),
-                        handleBuiltInTouches: true,
                       ),
-                      lineBarsData: _buildLineBarsData(
-                        historySpots,
-                        predictionSpots,
-                        useMMOL,
+
+                      // Власні часові мітки внизу
+                      Container(
+                        height: 40,
+                        color: Colors.blue.withOpacity(0.1), // Дебаг фон
+                        child: CustomPaint(
+                          painter: TimeLabelsCustomPainter(),
+                          size: Size.infinite,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -400,45 +440,6 @@ class GlucoseChart extends StatelessWidget {
     return lineBars;
   }
 
-  // Фіксований метод для часових міток з точними значеннями
-  Widget bottomTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(
-      color: Color(0xff68737d),
-      fontWeight: FontWeight.bold,
-      fontSize: 11, // ← Зменшено з 12 до 11
-    );
-
-    String text = '';
-    int roundedValue = value.round(); // ← Нове: округлення для точності
-
-    switch (roundedValue) {
-      // ← Нове: switch замість Map
-      case -180:
-        text = '-3h';
-        break;
-      case -120:
-        text = '-2h';
-        break;
-      case -60:
-        text = '-1h';
-        break;
-      case 0:
-        text = 'Now';
-        break;
-      case 60:
-        text = '+1h';
-        break;
-      default:
-        return const SizedBox.shrink();
-    }
-
-    return SideTitleWidget(
-      axisSide: meta.axisSide,
-      space: 8, // ← Нове: відступ від осі
-      child: Text(text, style: style, textAlign: TextAlign.center),
-    );
-  }
-
   Widget leftTitleWidgets(double value, TitleMeta meta, bool useMMOL) {
     const style = TextStyle(
       color: Color(0xff67727d),
@@ -455,6 +456,56 @@ class GlucoseChart extends StatelessWidget {
 
     return Text(text, style: style, textAlign: TextAlign.center);
   }
+}
+
+// Custom Painter для часових міток - ГАРАНТОВАНО стабільний
+class TimeLabelsCustomPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const textStyle = TextStyle(
+      color: Color(0xff68737d),
+      fontWeight: FontWeight.bold,
+      fontSize: 11,
+    );
+
+    // Фіксовані позиції міток у відсотках від ширини
+    final labels = {
+      0.0: '-3h', // Лівий край
+      0.2: '-1h', // 20% від ширини
+      0.5: 'Now', // Центр - точно посередині!
+      0.8: '+1h', // 80% від ширини
+    };
+
+    // Дебаг: малюємо фон для кожної мітки
+    for (final entry in labels.entries) {
+      final x = size.width * entry.key;
+
+      // Малюємо червоний прямокутник для дебагу позиції
+      final debugRect = Rect.fromCenter(
+        center: Offset(x, size.height / 2),
+        width: 40,
+        height: 20,
+      );
+      canvas.drawRect(debugRect, Paint()..color = Colors.red.withOpacity(0.2));
+
+      final textPainter =
+          TextPainter()
+            ..text = TextSpan(text: entry.value, style: textStyle)
+            ..textDirection = ui.TextDirection.ltr
+            ..layout();
+
+      // Центруємо текст відносно позиції
+      final offset = Offset(
+        x - textPainter.width / 2,
+        size.height / 2 - textPainter.height / 2,
+      );
+
+      textPainter.paint(canvas, offset);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class ChartDashedLinePainter extends CustomPainter {

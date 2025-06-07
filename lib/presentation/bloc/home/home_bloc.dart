@@ -3,22 +3,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:glucose_companion/data/models/activity_record.dart';
 import 'package:glucose_companion/data/models/carb_record.dart';
 import 'package:glucose_companion/data/models/insulin_record.dart';
-import 'package:glucose_companion/domain/repositories/activity_repository.dart';
-import 'package:glucose_companion/domain/repositories/carb_repository.dart';
 import 'package:glucose_companion/domain/repositories/dexcom_repository.dart';
-import 'package:glucose_companion/domain/repositories/insulin_repository.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_event.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_state.dart';
 import 'package:glucose_companion/services/alert_service.dart';
+import 'package:glucose_companion/services/mock_records_service.dart';
 import 'package:glucose_companion/presentation/bloc/settings/settings_bloc.dart';
 import 'package:glucose_companion/presentation/bloc/settings/settings_state.dart';
 import 'package:glucose_companion/data/models/user_settings.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final DexcomRepository _dexcomRepository;
-  final InsulinRepository _insulinRepository;
-  final CarbRepository _carbRepository;
-  final ActivityRepository _activityRepository;
+  final MockRecordsService _mockRecordsService;
   final AlertService _alertService;
   final SettingsBloc _settingsBloc;
   Timer? _autoRefreshTimer;
@@ -27,9 +23,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   HomeBloc(
     this._dexcomRepository,
-    this._insulinRepository,
-    this._carbRepository,
-    this._activityRepository,
+    this._mockRecordsService,
     this._alertService,
     this._settingsBloc,
   ) : super(HomeInitial()) {
@@ -124,6 +118,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     Emitter<HomeState> emit,
   ) async {
     try {
+      print('Recording insulin: ${event.units}U ${event.insulinType}');
+
       final insulinRecord = InsulinRecord(
         userId: _currentUserId,
         timestamp: DateTime.now(),
@@ -132,13 +128,16 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         notes: event.notes,
       );
 
-      await _insulinRepository.insert(insulinRecord);
+      final id = await _mockRecordsService.insertInsulin(insulinRecord);
+      print('Insulin record saved with ID: $id');
+
       emit(InsulinRecorded());
 
-      // Оновлюємо дані для поточного дня
+      // Автоматично завантажуємо оновлені записи
       add(LoadDailyRecordsEvent(DateTime.now()));
     } catch (e) {
-      emit(RecordingFailure(e.toString()));
+      print('Error recording insulin: $e');
+      emit(RecordingFailure('Failed to record insulin: $e'));
     }
   }
 
@@ -147,6 +146,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     Emitter<HomeState> emit,
   ) async {
     try {
+      print('Recording carbs: ${event.grams}g ${event.foodType ?? 'no type'}');
+
       final carbRecord = CarbRecord(
         userId: _currentUserId,
         timestamp: DateTime.now(),
@@ -155,13 +156,43 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         notes: event.notes,
       );
 
-      await _carbRepository.insert(carbRecord);
+      final id = await _mockRecordsService.insertCarb(carbRecord);
+      print('Carb record saved with ID: $id');
+
       emit(CarbsRecorded());
 
-      // Оновлюємо дані для поточного дня
+      // Автоматично завантажуємо оновлені записи
       add(LoadDailyRecordsEvent(DateTime.now()));
     } catch (e) {
-      emit(RecordingFailure(e.toString()));
+      print('Error recording carbs: $e');
+      emit(RecordingFailure('Failed to record carbs: $e'));
+    }
+  }
+
+  Future<void> _onRecordActivity(
+    RecordActivityEvent event,
+    Emitter<HomeState> emit,
+  ) async {
+    try {
+      print('Recording activity: ${event.activityType}');
+
+      final activityRecord = ActivityRecord(
+        userId: _currentUserId,
+        timestamp: DateTime.now(),
+        activityType: event.activityType,
+        notes: event.notes,
+      );
+
+      final id = await _mockRecordsService.insertActivity(activityRecord);
+      print('Activity record saved with ID: $id');
+
+      emit(ActivityRecorded());
+
+      // Автоматично завантажуємо оновлені записи
+      add(LoadDailyRecordsEvent(DateTime.now()));
+    } catch (e) {
+      print('Error recording activity: $e');
+      emit(RecordingFailure('Failed to record activity: $e'));
     }
   }
 
@@ -170,6 +201,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     Emitter<HomeState> emit,
   ) async {
     try {
+      print('Loading daily records for ${event.date}');
+
       final startOfDay = DateTime(
         event.date.year,
         event.date.month,
@@ -177,27 +210,96 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       );
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
-      final insulinRecords = await _insulinRepository.getByDateRange(
-        _currentUserId,
-        startOfDay,
-        endOfDay,
-      );
+      print('Date range: $startOfDay to $endOfDay');
 
-      final carbRecords = await _carbRepository.getByDateRange(
+      final insulinRecords = await _mockRecordsService.getInsulinByDateRange(
         _currentUserId,
         startOfDay,
         endOfDay,
       );
+      print('Loaded ${insulinRecords.length} insulin records');
 
-      final activityRecords = await _activityRepository.getByDateRange(
+      final carbRecords = await _mockRecordsService.getCarbsByDateRange(
         _currentUserId,
         startOfDay,
         endOfDay,
       );
+      print('Loaded ${carbRecords.length} carb records');
+
+      final activityRecords = await _mockRecordsService
+          .getActivitiesByDateRange(_currentUserId, startOfDay, endOfDay);
+      print('Loaded ${activityRecords.length} activity records');
 
       emit(DailyRecordsLoaded(insulinRecords, carbRecords, activityRecords));
+      print('Daily records loaded successfully');
     } catch (e) {
-      emit(HomeLoadingFailure(e.toString()));
+      print('Error loading daily records: $e');
+      emit(HomeLoadingFailure('Error loading records: $e'));
+    }
+  }
+
+  Future<void> _onUpdateInsulinRecord(
+    UpdateInsulinRecordEvent event,
+    Emitter<HomeState> emit,
+  ) async {
+    try {
+      await _mockRecordsService.updateInsulin(event.record);
+      emit(InsulinRecorded());
+
+      // Автоматично завантажуємо оновлені записи
+      add(LoadDailyRecordsEvent(DateTime.now()));
+    } catch (e) {
+      emit(RecordingFailure('Failed to update insulin: $e'));
+    }
+  }
+
+  Future<void> _onUpdateCarbRecord(
+    UpdateCarbRecordEvent event,
+    Emitter<HomeState> emit,
+  ) async {
+    try {
+      await _mockRecordsService.updateCarb(event.record);
+      emit(CarbsRecorded());
+
+      // Автоматично завантажуємо оновлені записи
+      add(LoadDailyRecordsEvent(DateTime.now()));
+    } catch (e) {
+      emit(RecordingFailure('Failed to update carbs: $e'));
+    }
+  }
+
+  Future<void> _onUpdateActivityRecord(
+    UpdateActivityRecordEvent event,
+    Emitter<HomeState> emit,
+  ) async {
+    try {
+      await _mockRecordsService.updateActivity(event.record);
+      emit(ActivityRecorded());
+
+      // Автоматично завантажуємо оновлені записи
+      add(LoadDailyRecordsEvent(DateTime.now()));
+    } catch (e) {
+      emit(RecordingFailure('Failed to update activity: $e'));
+    }
+  }
+
+  Future<void> _onDeleteRecord(
+    DeleteRecordEvent event,
+    Emitter<HomeState> emit,
+  ) async {
+    try {
+      if (event.recordType == 'insulin') {
+        await _mockRecordsService.deleteInsulin(event.recordId);
+      } else if (event.recordType == 'carbs') {
+        await _mockRecordsService.deleteCarb(event.recordId);
+      } else if (event.recordType == 'activity') {
+        await _mockRecordsService.deleteActivity(event.recordId);
+      }
+
+      // Автоматично завантажуємо оновлені записи
+      add(LoadDailyRecordsEvent(DateTime.now()));
+    } catch (e) {
+      emit(RecordingFailure('Failed to delete record: $e'));
     }
   }
 
@@ -213,92 +315,5 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   Future<void> close() {
     _autoRefreshTimer?.cancel();
     return super.close();
-  }
-
-  Future<void> _onUpdateInsulinRecord(
-    UpdateInsulinRecordEvent event,
-    Emitter<HomeState> emit,
-  ) async {
-    try {
-      await _insulinRepository.update(event.record);
-      emit(InsulinRecorded());
-
-      // Оновлюємо дані для поточного дня
-      add(LoadDailyRecordsEvent(DateTime.now()));
-    } catch (e) {
-      emit(RecordingFailure(e.toString()));
-    }
-  }
-
-  Future<void> _onUpdateCarbRecord(
-    UpdateCarbRecordEvent event,
-    Emitter<HomeState> emit,
-  ) async {
-    try {
-      await _carbRepository.update(event.record);
-      emit(CarbsRecorded());
-
-      // Оновлюємо дані для поточного дня
-      add(LoadDailyRecordsEvent(DateTime.now()));
-    } catch (e) {
-      emit(RecordingFailure(e.toString()));
-    }
-  }
-
-  Future<void> _onUpdateActivityRecord(
-    UpdateActivityRecordEvent event,
-    Emitter<HomeState> emit,
-  ) async {
-    try {
-      await _activityRepository.update(event.record);
-      emit(ActivityRecorded());
-
-      // Оновлюємо дані для поточного дня
-      add(LoadDailyRecordsEvent(DateTime.now()));
-    } catch (e) {
-      emit(RecordingFailure(e.toString()));
-    }
-  }
-
-  Future<void> _onDeleteRecord(
-    DeleteRecordEvent event,
-    Emitter<HomeState> emit,
-  ) async {
-    try {
-      if (event.recordType == 'insulin') {
-        await _insulinRepository.delete(event.recordId);
-      } else if (event.recordType == 'carbs') {
-        await _carbRepository.delete(event.recordId);
-      } else if (event.recordType == 'activity') {
-        await _activityRepository.delete(event.recordId);
-      }
-
-      // Оновлюємо дані для поточного дня
-      add(LoadDailyRecordsEvent(DateTime.now()));
-    } catch (e) {
-      emit(RecordingFailure(e.toString()));
-    }
-  }
-
-  Future<void> _onRecordActivity(
-    RecordActivityEvent event,
-    Emitter<HomeState> emit,
-  ) async {
-    try {
-      final activityRecord = ActivityRecord(
-        userId: _currentUserId,
-        timestamp: DateTime.now(),
-        activityType: event.activityType,
-        notes: event.notes,
-      );
-
-      await _activityRepository.insert(activityRecord);
-      emit(ActivityRecorded());
-
-      // Оновлюємо дані для поточного дня
-      add(LoadDailyRecordsEvent(DateTime.now()));
-    } catch (e) {
-      emit(RecordingFailure(e.toString()));
-    }
   }
 }

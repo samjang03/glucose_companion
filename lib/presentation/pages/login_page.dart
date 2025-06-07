@@ -7,7 +7,7 @@ import 'package:glucose_companion/domain/repositories/dexcom_repository.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_bloc.dart';
 import 'package:glucose_companion/presentation/bloc/home/home_event.dart';
 import 'package:glucose_companion/presentation/pages/home_page.dart';
-import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 class LoginPage extends StatefulWidget {

@@ -1,4 +1,4 @@
-import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:glucose_companion/data/datasources/local/database_helper.dart';
 import 'package:glucose_companion/data/models/glucose_reading_db.dart';
 import 'package:glucose_companion/domain/repositories/glucose_reading_repository.dart';

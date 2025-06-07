@@ -1,4 +1,4 @@
-import 'package:sqflite_sqlcipher/sqlite_api.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:glucose_companion/data/datasources/local/database_helper.dart';
 import 'package:glucose_companion/data/models/insulin_record.dart';
 import 'package:glucose_companion/domain/repositories/insulin_repository.dart';
@@ -10,12 +10,24 @@ class InsulinRepositoryImpl implements InsulinRepository {
 
   @override
   Future<int> insert(InsulinRecord record) async {
-    final db = await _databaseHelper.database;
-    return await db.insert(
-      'insulin_records',
-      record.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    print('DEBUG: InsulinRepository.insert called with: ${record.toMap()}');
+
+    try {
+      final db = await _databaseHelper.database;
+      print('DEBUG: Database obtained, attempting insert');
+
+      final result = await db.insert(
+        'insulin_records',
+        record.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      print('DEBUG: Insert successful, ID: $result');
+      return result;
+    } catch (e) {
+      print('DEBUG: Insert failed: $e');
+      rethrow;
+    }
   }
 
   @override

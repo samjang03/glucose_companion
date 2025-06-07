@@ -286,39 +286,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  void _showActivityDialog({ActivityRecord? record}) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return ActivityInputDialog(
-          initialActivityType: record?.activityType,
-          initialNotes: record?.notes,
-          isEditing: record != null,
-          onSave: (activityType, notes) {
-            if (record != null) {
-              // Режим редагування
-              _homeBloc.add(
-                UpdateActivityRecordEvent(
-                  record.copyWith(activityType: activityType, notes: notes),
-                ),
-              );
-            } else {
-              // Новий запис
-              _homeBloc.add(
-                RecordActivityEvent(activityType: activityType, notes: notes),
-              );
-            }
-
-            // ВАЖЛИВО: Оновлюємо записи за сьогодні після збереження
-            Future.delayed(const Duration(milliseconds: 500), () {
-              _homeBloc.add(LoadDailyRecordsEvent(DateTime.now()));
-            });
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -732,7 +699,25 @@ class _HomePageState extends State<HomePage>
                         _showActivityDialog(record: record);
                       },
                       onDeleteRecord: (type, id) {
-                        _homeBloc.add(DeleteRecordEvent(type, id));
+                        String description = '';
+                        if (type == 'insulin') {
+                          final record = _insulinRecords.firstWhere(
+                            (r) => r.id == id,
+                          );
+                          description = '${record.units}U ${record.type}';
+                        } else if (type == 'carbs') {
+                          final record = _carbRecords.firstWhere(
+                            (r) => r.id == id,
+                          );
+                          description =
+                              '${record.grams}g ${record.mealType ?? 'carbs'}';
+                        } else if (type == 'activity') {
+                          final record = _activityRecords.firstWhere(
+                            (r) => r.id == id,
+                          );
+                          description = record.activityType;
+                        }
+                        _confirmDeleteRecord(type, id, description);
                       },
                     ),
                   ],
@@ -845,6 +830,9 @@ class _HomePageState extends State<HomePage>
     return const AnalyticsPage();
   }
 
+  // Замініть ці методи в lib/presentation/pages/home_page.dart
+  // Видаліть всі Future.delayed та тимчасові кнопки
+
   void _showInsulinDialog({InsulinRecord? record}) {
     showDialog(
       context: context,
@@ -876,11 +864,6 @@ class _HomePageState extends State<HomePage>
                 ),
               );
             }
-
-            // ВАЖЛИВО: Оновлюємо записи за сьогодні після збереження
-            Future.delayed(const Duration(milliseconds: 500), () {
-              _homeBloc.add(LoadDailyRecordsEvent(DateTime.now()));
-            });
           },
         );
       },
@@ -918,12 +901,71 @@ class _HomePageState extends State<HomePage>
                 ),
               );
             }
-
-            // ВАЖЛИВО: Оновлюємо записи за сьогодні після збереження
-            Future.delayed(const Duration(milliseconds: 500), () {
-              _homeBloc.add(LoadDailyRecordsEvent(DateTime.now()));
-            });
           },
+        );
+      },
+    );
+  }
+
+  void _showActivityDialog({ActivityRecord? record}) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return ActivityInputDialog(
+          initialActivityType: record?.activityType,
+          initialNotes: record?.notes,
+          isEditing: record != null,
+          onSave: (activityType, notes) {
+            if (record != null) {
+              // Режим редагування
+              _homeBloc.add(
+                UpdateActivityRecordEvent(
+                  record.copyWith(activityType: activityType, notes: notes),
+                ),
+              );
+            } else {
+              // Новий запис
+              _homeBloc.add(
+                RecordActivityEvent(activityType: activityType, notes: notes),
+              );
+            }
+          },
+        );
+      },
+    );
+  }
+
+  // Метод для підтвердження видалення
+  void _confirmDeleteRecord(String type, int id, String description) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: Text(
+            'Are you sure you want to delete this $type record?\n\n$description',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _homeBloc.add(DeleteRecordEvent(type, id));
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$type record deleted'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
         );
       },
     );

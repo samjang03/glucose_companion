@@ -1,5 +1,5 @@
 // lib/data/repositories/alert_repository_impl.dart
-import 'package:sqflite_sqlcipher/sqlite_api.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:glucose_companion/data/datasources/local/database_helper.dart';
 import 'package:glucose_companion/data/models/alert.dart';
 import 'package:glucose_companion/domain/repositories/alert_repository.dart';

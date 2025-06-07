@@ -104,9 +104,6 @@ class DailyRecordsList extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       direction: DismissDirection.endToStart,
-      confirmDismiss: (direction) async {
-        return await _showDeleteConfirmationDialog(context);
-      },
       onDismissed: (direction) {
         if (onDeleteRecord != null && record.id != null) {
           onDeleteRecord!('insulin', record.id!);
@@ -165,9 +162,6 @@ class DailyRecordsList extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       direction: DismissDirection.endToStart,
-      confirmDismiss: (direction) async {
-        return await _showDeleteConfirmationDialog(context);
-      },
       onDismissed: (direction) {
         if (onDeleteRecord != null && record.id != null) {
           onDeleteRecord!('carbs', record.id!);
@@ -227,9 +221,6 @@ class DailyRecordsList extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       direction: DismissDirection.endToStart,
-      confirmDismiss: (direction) async {
-        return await _showDeleteConfirmationDialog(context);
-      },
       onDismissed: (direction) {
         if (onDeleteRecord != null && record.id != null) {
           onDeleteRecord!('activity', record.id!);
@@ -272,30 +263,5 @@ class DailyRecordsList extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<bool> _showDeleteConfirmationDialog(BuildContext context) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Confirm Delete'),
-              content: const Text(
-                'Are you sure you want to delete this record?',
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Delete'),
-                ),
-              ],
-            );
-          },
-        ) ??
-        false;
   }
 }

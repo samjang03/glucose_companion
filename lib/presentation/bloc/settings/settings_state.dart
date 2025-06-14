@@ -38,3 +38,36 @@ class SettingsError extends SettingsState {
   @override
   List<Object?> get props => [message];
 }
+
+// НОВІ СТАНИ ДЛЯ PDF ЕКСПОРТУ
+class ReportExporting extends SettingsState {
+  final String message;
+
+  const ReportExporting(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
+class ReportExported extends SettingsState {
+  final String filePath;
+  final String message;
+
+  const ReportExported({required this.filePath, required this.message});
+
+  @override
+  List<Object?> get props => [filePath, message];
+}
+
+class ReportPreviewing extends SettingsState {}
+
+class ReportSharing extends SettingsState {}
+
+class ReportExportError extends SettingsState {
+  final String message;
+
+  const ReportExportError(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}

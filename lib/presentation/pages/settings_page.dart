@@ -28,12 +28,38 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => _settingsBloc,
-      child: BlocBuilder<SettingsBloc, SettingsState>(
+      child: BlocConsumer<SettingsBloc, SettingsState>(
+        listener: (context, state) {
+          if (state is ReportExported) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Report generated successfully!'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+
+            // Показуємо діалог з опціями
+            _showReportGeneratedDialog(context, state.filePath);
+          } else if (state is ReportExportError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
         builder: (context, state) {
-          if (state is SettingsLoading) {
+          if (state is SettingsLoading && state is! ReportExporting) {
             return const Center(child: CircularProgressIndicator());
-          } else if (state is SettingsLoaded) {
-            return _buildSettingsUI(context, state.settings);
+          } else if (state is SettingsLoaded ||
+              state is ReportExporting ||
+              state is ReportPreviewing ||
+              state is ReportSharing) {
+            final settings = _getSettingsFromState(state);
+            return _buildSettingsUI(context, settings, state);
           } else if (state is SettingsError) {
             return Center(child: Text('Error: ${state.message}'));
           } else {
@@ -44,7 +70,22 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildSettingsUI(BuildContext context, UserSettings settings) {
+  UserSettings _getSettingsFromState(SettingsState state) {
+    if (state is SettingsLoaded) return state.settings;
+    if (state is ReportExporting ||
+        state is ReportPreviewing ||
+        state is ReportSharing) {
+      final previousState = _settingsBloc.state;
+      if (previousState is SettingsLoaded) return previousState.settings;
+    }
+    return const UserSettings(); // Fallback
+  }
+
+  Widget _buildSettingsUI(
+    BuildContext context,
+    UserSettings settings,
+    SettingsState currentState,
+  ) {
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
@@ -53,19 +94,362 @@ class _SettingsPageState extends State<SettingsPage> {
         _buildThresholdsSection(settings),
         const Divider(),
         _buildDexcomSection(settings),
-        // const Divider(),
-        // _buildRefreshSection(settings),
         const Divider(),
         _buildAlertSection(settings),
         const Divider(),
         _buildThemeSection(settings),
         const Divider(),
         _buildProfileSection(settings),
+        const Divider(),
+
+        // НОВА СЕКЦІЯ ДЛЯ ЕКСПОРТУ ЗВІТІВ
+        _buildReportsSection(settings, currentState),
+
         const SizedBox(height: 60), // Додатковий простір внизу
       ],
     );
   }
 
+  // НОВА СЕКЦІЯ ДЛЯ ЗВІТІВ
+  Widget _buildReportsSection(
+    UserSettings settings,
+    SettingsState currentState,
+  ) {
+    final isExporting = currentState is ReportExporting;
+    final isPreviewing = currentState is ReportPreviewing;
+    final isSharing = currentState is ReportSharing;
+    final isProcessing = isExporting || isPreviewing || isSharing;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ListTile(
+          title: Text(
+            'Reports & Export',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          leading: Icon(Icons.file_download),
+        ),
+
+        if (isProcessing)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: Column(
+              children: [
+                const LinearProgressIndicator(),
+                const SizedBox(height: 8),
+                Text(
+                  isExporting
+                      ? (currentState as ReportExporting).message
+                      : isPreviewing
+                      ? 'Preparing preview...'
+                      : isSharing
+                      ? 'Sharing report...'
+                      : 'Processing...',
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+
+        ListTile(
+          title: const Text('Generate PDF Report'),
+          subtitle: const Text('Create detailed glucose analysis report'),
+          trailing: const Icon(Icons.picture_as_pdf),
+          enabled: !isProcessing,
+          onTap: () => _showReportOptionsDialog(context),
+        ),
+
+        ListTile(
+          title: const Text('Preview Report'),
+          subtitle: const Text('Preview report before generating'),
+          trailing: const Icon(Icons.preview),
+          enabled: !isProcessing,
+          onTap: () => _showPreviewOptionsDialog(context),
+        ),
+
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Reports include glucose statistics, time in range analysis, daily patterns, and detected trends over your selected period.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showReportOptionsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Generate PDF Report'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Select time period for your glucose report:'),
+                const SizedBox(height: 16),
+
+                _buildReportOption(
+                  context,
+                  'Last 7 days',
+                  'Quick overview of recent glucose data',
+                  () => _generateReport(context, 7),
+                ),
+                _buildReportOption(
+                  context,
+                  'Last 14 days',
+                  'Recommended period for comprehensive analysis',
+                  () => _generateReport(context, 14),
+                ),
+                _buildReportOption(
+                  context,
+                  'Last 30 days',
+                  'Extended analysis for pattern recognition',
+                  () => _generateReport(context, 30),
+                ),
+                _buildReportOption(
+                  context,
+                  'Custom period',
+                  'Choose your own date range',
+                  () => _showCustomDatePicker(context, false),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showPreviewOptionsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Preview Report'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Select time period to preview:'),
+                const SizedBox(height: 16),
+
+                _buildReportOption(
+                  context,
+                  'Last 7 days',
+                  'Quick preview',
+                  () => _previewReport(context, 7),
+                ),
+                _buildReportOption(
+                  context,
+                  'Last 14 days',
+                  'Standard preview',
+                  () => _previewReport(context, 14),
+                ),
+                _buildReportOption(
+                  context,
+                  'Custom period',
+                  'Choose your own date range',
+                  () => _showCustomDatePicker(context, true),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildReportOption(
+    BuildContext context,
+    String title,
+    String subtitle,
+    VoidCallback onTap,
+  ) {
+    return ListTile(
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+    );
+  }
+
+  void _generateReport(BuildContext context, int days) {
+    final endDate = DateTime.now();
+    final startDate = endDate.subtract(Duration(days: days));
+
+    _settingsBloc.add(
+      ExportReportEvent(startDate: startDate, endDate: endDate),
+    );
+  }
+
+  void _previewReport(BuildContext context, int days) {
+    final endDate = DateTime.now();
+    final startDate = endDate.subtract(Duration(days: days));
+
+    _settingsBloc.add(
+      PreviewReportEvent(startDate: startDate, endDate: endDate),
+    );
+  }
+
+  void _showCustomDatePicker(BuildContext context, bool isPreview) {
+    DateTime startDate = DateTime.now().subtract(const Duration(days: 14));
+    DateTime endDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setState) => AlertDialog(
+                  title: Text(
+                    isPreview
+                        ? 'Preview Custom Period'
+                        : 'Generate Custom Report',
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        title: const Text('Start Date'),
+                        subtitle: Text(
+                          '${startDate.day}/${startDate.month}/${startDate.year}',
+                        ),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: startDate,
+                            firstDate: DateTime.now().subtract(
+                              const Duration(days: 365),
+                            ),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              startDate = picked;
+                              if (startDate.isAfter(endDate)) {
+                                endDate = startDate.add(
+                                  const Duration(days: 1),
+                                );
+                              }
+                            });
+                          }
+                        },
+                      ),
+                      ListTile(
+                        title: const Text('End Date'),
+                        subtitle: Text(
+                          '${endDate.day}/${endDate.month}/${endDate.year}',
+                        ),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: endDate,
+                            firstDate: startDate,
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              endDate = picked;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Period: ${endDate.difference(startDate).inDays + 1} days',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        if (isPreview) {
+                          _settingsBloc.add(
+                            PreviewReportEvent(
+                              startDate: startDate,
+                              endDate: endDate,
+                            ),
+                          );
+                        } else {
+                          _settingsBloc.add(
+                            ExportReportEvent(
+                              startDate: startDate,
+                              endDate: endDate,
+                            ),
+                          );
+                        }
+                      },
+                      child: Text(isPreview ? 'Preview' : 'Generate'),
+                    ),
+                  ],
+                ),
+          ),
+    );
+  }
+
+  void _showReportGeneratedDialog(BuildContext context, String filePath) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Report Generated'),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 48),
+                SizedBox(height: 16),
+                Text(
+                  'Your glucose report has been successfully generated!',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _settingsBloc.add(ShareReportEvent(filePath));
+                },
+                icon: const Icon(Icons.share),
+                label: const Text('Share'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // ІСНУЮЧІ МЕТОДИ ЗАЛИШАЮТЬСЯ БЕЗ ЗМІН
   Widget _buildMeasurementSection(UserSettings settings) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

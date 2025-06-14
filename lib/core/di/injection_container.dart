@@ -22,6 +22,8 @@ import 'package:glucose_companion/data/repositories/alert_repository_impl.dart';
 import 'package:glucose_companion/domain/repositories/alert_repository.dart';
 import 'package:glucose_companion/presentation/bloc/alerts/alerts_bloc.dart';
 import 'package:glucose_companion/services/alert_service.dart';
+import 'package:glucose_companion/services/pdf_export_service.dart';
+import 'package:glucose_companion/services/report_data_service.dart';
 
 final sl = GetIt.instance;
 
@@ -40,6 +42,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => MockDataService());
   sl.registerLazySingleton(() => MockRecordsService());
   sl.registerLazySingleton(() => AlertService(sl()));
+
+  sl.registerLazySingleton(() => PDFExportService());
+  sl.registerLazySingleton(() => ReportDataService(sl()));
 
   // Data sources
   sl.registerLazySingleton(
@@ -74,7 +79,13 @@ Future<void> init() async {
       sl<SettingsBloc>(),
     ),
   );
-  sl.registerFactory(() => SettingsBloc(sl()));
+  sl.registerFactory<SettingsBloc>(
+    () => SettingsBloc(
+      sl<SettingsService>(),
+      sl<PDFExportService>(),
+      sl<ReportDataService>(),
+    ),
+  );
   sl.registerFactory(
     () => PredictionBloc(
       sl<DexcomRepository>(),

@@ -108,3 +108,38 @@ class UpdateUserInfoEvent extends SettingsEvent {
   @override
   List<Object?> get props => [userId, userEmail];
 }
+
+// НОВІ ПОДІЇ ДЛЯ PDF ЕКСПОРТУ
+class ExportReportEvent extends SettingsEvent {
+  final DateTime startDate;
+  final DateTime endDate;
+  final String reportType; // 'pdf', 'csv'
+
+  const ExportReportEvent({
+    required this.startDate,
+    required this.endDate,
+    this.reportType = 'pdf',
+  });
+
+  @override
+  List<Object?> get props => [startDate, endDate, reportType];
+}
+
+class PreviewReportEvent extends SettingsEvent {
+  final DateTime startDate;
+  final DateTime endDate;
+
+  const PreviewReportEvent({required this.startDate, required this.endDate});
+
+  @override
+  List<Object?> get props => [startDate, endDate];
+}
+
+class ShareReportEvent extends SettingsEvent {
+  final String filePath;
+
+  const ShareReportEvent(this.filePath);
+
+  @override
+  List<Object?> get props => [filePath];
+}

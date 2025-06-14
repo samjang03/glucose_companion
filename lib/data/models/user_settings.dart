@@ -1,8 +1,9 @@
+// lib/data/models/user_settings.dart
 class UserSettings {
   // Одиниці вимірювання
   final String glucoseUnits; // 'mmol_L' або 'mg_dL'
 
-  // Порогові значення для mmol/L
+  // Порогові значення (автоматично адаптуються до одиниць)
   final double lowThreshold;
   final double highThreshold;
   final double urgentLowThreshold;
@@ -44,6 +45,79 @@ class UserSettings {
     this.userEmail = '',
   });
 
+  // ✨ Метод для конвертації одиниць вимірювання з автоматичною конвертацією порогів ✨
+  UserSettings convertToUnits(String newUnits) {
+    if (newUnits == glucoseUnits)
+      return this; // Якщо одиниці однакові, повертаємо без змін
+
+    // Коефіцієнт конвертації
+    final double conversionFactor = newUnits == 'mg_dL' ? 18.0 : (1.0 / 18.0);
+
+    return copyWith(
+      glucoseUnits: newUnits,
+      lowThreshold: double.parse(
+        (lowThreshold * conversionFactor).toStringAsFixed(
+          newUnits == 'mg_dL' ? 0 : 1,
+        ),
+      ),
+      highThreshold: double.parse(
+        (highThreshold * conversionFactor).toStringAsFixed(
+          newUnits == 'mg_dL' ? 0 : 1,
+        ),
+      ),
+      urgentLowThreshold: double.parse(
+        (urgentLowThreshold * conversionFactor).toStringAsFixed(
+          newUnits == 'mg_dL' ? 0 : 1,
+        ),
+      ),
+      urgentHighThreshold: double.parse(
+        (urgentHighThreshold * conversionFactor).toStringAsFixed(
+          newUnits == 'mg_dL' ? 0 : 1,
+        ),
+      ),
+    );
+  }
+
+  // ✨ Метод для отримання правильних мінімальних та максимальних значень для слайдерів ✨
+  Map<String, double> getThresholdLimits() {
+    if (glucoseUnits == 'mg_dL') {
+      return {
+        'lowMin': 50.0,
+        'lowMax': 90.0,
+        'highMin': 140.0,
+        'highMax': 270.0,
+        'urgentLowMin': 30.0,
+        'urgentLowMax': 70.0,
+        'urgentHighMin': 220.0,
+        'urgentHighMax': 360.0,
+      };
+    } else {
+      return {
+        'lowMin': 3.0,
+        'lowMax': 5.0,
+        'highMin': 8.0,
+        'highMax': 15.0,
+        'urgentLowMin': 2.0,
+        'urgentLowMax': 4.0,
+        'urgentHighMin': 12.0,
+        'urgentHighMax': 20.0,
+      };
+    }
+  }
+
+  // ✨ Метод для форматування значень глюкози ✨
+  String formatGlucoseValue(double value) {
+    if (glucoseUnits == 'mg_dL') {
+      return '${value.round()} mg/dL';
+    } else {
+      return '${value.toStringAsFixed(1)} mmol/L';
+    }
+  }
+
+  String get glucoseUnitsDisplay {
+    return glucoseUnits == 'mmol_L' ? 'mmol/L' : 'mg/dL';
+  }
+
   // Конвертація в Map для збереження
   Map<String, dynamic> toMap() {
     return {
@@ -68,12 +142,12 @@ class UserSettings {
   factory UserSettings.fromMap(Map<String, dynamic> map) {
     return UserSettings(
       glucoseUnits: map['glucoseUnits'] ?? 'mmol_L',
-      lowThreshold: map['lowThreshold'] ?? 3.9,
-      highThreshold: map['highThreshold'] ?? 10.0,
-      urgentLowThreshold: map['urgentLowThreshold'] ?? 3.0,
-      urgentHighThreshold: map['urgentHighThreshold'] ?? 13.9,
+      lowThreshold: map['lowThreshold']?.toDouble() ?? 3.9,
+      highThreshold: map['highThreshold']?.toDouble() ?? 10.0,
+      urgentLowThreshold: map['urgentLowThreshold']?.toDouble() ?? 3.0,
+      urgentHighThreshold: map['urgentHighThreshold']?.toDouble() ?? 13.9,
       dexcomRegion: map['dexcomRegion'] ?? 'ous',
-      autoRefreshInterval: 5,
+      autoRefreshInterval: map['autoRefreshInterval'] ?? 5,
       alertsEnabled: map['alertsEnabled'] ?? true,
       predictionAlertsEnabled: map['predictionAlertsEnabled'] ?? true,
       vibrateOnAlert: map['vibrateOnAlert'] ?? true,
@@ -108,7 +182,7 @@ class UserSettings {
       urgentLowThreshold: urgentLowThreshold ?? this.urgentLowThreshold,
       urgentHighThreshold: urgentHighThreshold ?? this.urgentHighThreshold,
       dexcomRegion: dexcomRegion ?? this.dexcomRegion,
-      autoRefreshInterval: 5,
+      autoRefreshInterval: autoRefreshInterval ?? this.autoRefreshInterval,
       alertsEnabled: alertsEnabled ?? this.alertsEnabled,
       predictionAlertsEnabled:
           predictionAlertsEnabled ?? this.predictionAlertsEnabled,
@@ -120,16 +194,50 @@ class UserSettings {
     );
   }
 
-  // Конвертація порогових значень в залежності від одиниць вимірювання
-  double convertThreshold(double threshold, String toUnits) {
-    if (toUnits == glucoseUnits) return threshold;
+  @override
+  String toString() {
+    return 'UserSettings(glucoseUnits: $glucoseUnits, lowThreshold: $lowThreshold, '
+        'highThreshold: $highThreshold)';
+  }
 
-    if (toUnits == 'mg_dL') {
-      // Конвертуємо з mmol/L в mg/dL
-      return threshold * 18.0;
-    } else {
-      // Конвертуємо з mg/dL в mmol/L
-      return threshold / 18.0;
-    }
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is UserSettings &&
+        other.glucoseUnits == glucoseUnits &&
+        other.lowThreshold == lowThreshold &&
+        other.highThreshold == highThreshold &&
+        other.urgentLowThreshold == urgentLowThreshold &&
+        other.urgentHighThreshold == urgentHighThreshold &&
+        other.dexcomRegion == dexcomRegion &&
+        other.autoRefreshInterval == autoRefreshInterval &&
+        other.alertsEnabled == alertsEnabled &&
+        other.predictionAlertsEnabled == predictionAlertsEnabled &&
+        other.vibrateOnAlert == vibrateOnAlert &&
+        other.soundOnAlert == soundOnAlert &&
+        other.theme == theme &&
+        other.userId == userId &&
+        other.userEmail == userEmail;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      glucoseUnits,
+      lowThreshold,
+      highThreshold,
+      urgentLowThreshold,
+      urgentHighThreshold,
+      dexcomRegion,
+      autoRefreshInterval,
+      alertsEnabled,
+      predictionAlertsEnabled,
+      vibrateOnAlert,
+      soundOnAlert,
+      theme,
+      userId,
+      userEmail,
+    );
   }
 }

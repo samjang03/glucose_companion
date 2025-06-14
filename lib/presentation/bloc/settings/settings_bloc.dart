@@ -3,11 +3,19 @@ import 'package:glucose_companion/data/models/user_settings.dart';
 import 'package:glucose_companion/presentation/bloc/settings/settings_event.dart';
 import 'package:glucose_companion/presentation/bloc/settings/settings_state.dart';
 import 'package:glucose_companion/services/settings_service.dart';
+import 'package:glucose_companion/services/pdf_export_service.dart';
+import 'package:glucose_companion/services/report_data_service.dart';
 
 class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final SettingsService _settingsService;
+  final PDFExportService _pdfExportService;
+  final ReportDataService _reportDataService;
 
-  SettingsBloc(this._settingsService) : super(SettingsInitial()) {
+  SettingsBloc(
+    this._settingsService,
+    this._pdfExportService,
+    this._reportDataService,
+  ) : super(SettingsInitial()) {
     on<LoadSettingsEvent>(_onLoadSettings);
     on<SaveSettingsEvent>(_onSaveSettings);
     on<UpdateGlucoseUnitsEvent>(_onUpdateGlucoseUnits);
@@ -17,6 +25,11 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<UpdateAlertSettingsEvent>(_onUpdateAlertSettings);
     on<UpdateThemeEvent>(_onUpdateTheme);
     on<UpdateUserInfoEvent>(_onUpdateUserInfo);
+
+    // Нові обробники для PDF експорту
+    on<ExportReportEvent>(_onExportReport);
+    on<PreviewReportEvent>(_onPreviewReport);
+    on<ShareReportEvent>(_onShareReport);
   }
 
   Future<void> _onLoadSettings(
@@ -146,6 +159,134 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       );
 
       add(SaveSettingsEvent(newSettings));
+    }
+  }
+
+  // НОВІ ОБРОБНИКИ ДЛЯ PDF ЕКСПОРТУ
+  Future<void> _onExportReport(
+    ExportReportEvent event,
+    Emitter<SettingsState> emit,
+  ) async {
+    if (state is! SettingsLoaded) return;
+
+    final settings = (state as SettingsLoaded).settings;
+    emit(const ReportExporting('Generating report...'));
+
+    try {
+      // Валідація параметрів
+      if (!_reportDataService.validateReportParameters(
+        startDate: event.startDate,
+        endDate: event.endDate,
+        userId: settings.userId,
+      )) {
+        emit(
+          const ReportExportError(
+            'Invalid report parameters. Please check the date range and try again.',
+          ),
+        );
+        emit(SettingsLoaded(settings));
+        return;
+      }
+
+      emit(const ReportExporting('Collecting data...'));
+
+      // Генеруємо дані для звіту
+      final reportData = await _reportDataService.generateDemoReportData(
+        userId: settings.userId,
+        startDate: event.startDate,
+        endDate: event.endDate,
+      );
+
+      emit(const ReportExporting('Creating PDF...'));
+
+      // Генеруємо PDF файл
+      final filePath = await _pdfExportService.generateGlucoseReport(
+        reportData: reportData,
+        settings: settings,
+        userId: settings.userId,
+      );
+
+      emit(
+        ReportExported(
+          filePath: filePath,
+          message: 'Report successfully generated!',
+        ),
+      );
+
+      // Повертаємося до нормального стану
+      await Future.delayed(const Duration(seconds: 2));
+      emit(SettingsLoaded(settings));
+    } catch (e) {
+      emit(ReportExportError('Failed to generate report: $e'));
+      emit(SettingsLoaded(settings));
+    }
+  }
+
+  Future<void> _onPreviewReport(
+    PreviewReportEvent event,
+    Emitter<SettingsState> emit,
+  ) async {
+    if (state is! SettingsLoaded) return;
+
+    final settings = (state as SettingsLoaded).settings;
+    emit(ReportPreviewing());
+
+    try {
+      // Валідація параметрів
+      if (!_reportDataService.validateReportParameters(
+        startDate: event.startDate,
+        endDate: event.endDate,
+        userId: settings.userId,
+      )) {
+        emit(
+          const ReportExportError(
+            'Invalid report parameters. Please check the date range and try again.',
+          ),
+        );
+        emit(SettingsLoaded(settings));
+        return;
+      }
+
+      // Генеруємо дані для звіту
+      final reportData = await _reportDataService.generateDemoReportData(
+        userId: settings.userId,
+        startDate: event.startDate,
+        endDate: event.endDate,
+      );
+
+      // Генеруємо PDF як bytes
+      final pdfBytes = await _pdfExportService.generateReportBytes(
+        reportData: reportData,
+        settings: settings,
+        userId: settings.userId,
+      );
+
+      // Показуємо попередній перегляд
+      await _pdfExportService.previewReport(pdfBytes);
+
+      // Повертаємося до нормального стану
+      emit(SettingsLoaded(settings));
+    } catch (e) {
+      emit(ReportExportError('Failed to preview report: $e'));
+      emit(SettingsLoaded(settings));
+    }
+  }
+
+  Future<void> _onShareReport(
+    ShareReportEvent event,
+    Emitter<SettingsState> emit,
+  ) async {
+    if (state is! SettingsLoaded) return;
+
+    final settings = (state as SettingsLoaded).settings;
+    emit(ReportSharing());
+
+    try {
+      await _pdfExportService.shareReport(event.filePath);
+      emit(SettingsLoaded(settings));
+    } catch (e) {
+      emit(ReportExportError('Failed to share report: $e'));
+      emit(SettingsLoaded(settings));
     }
   }
 }
